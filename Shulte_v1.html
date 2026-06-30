@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Таблицы Шульте</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=PT+Sans:wght@700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #1a1a1a;
+    --tile: #5a5a5a;
+    --tile-text: #8e8e8e;   /* <-- цвет цифр/текста на плитках меняется здесь */
+    --shadow-color: #303030;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--bg);
+    color: #ddd;
+    font-family: 'PT Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    height: 100%;
+    overflow: hidden;
+  }
+
+  #app {
+    display: flex;
+    flex-direction: column;
+    width: 100vw;
+    height: 100vh;
+  }
+
+  /* ---------- MENU ---------- */
+
+  #menu-screen {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+    padding: 20vh 24px;
+  }
+
+  /* Размер сетки меню: ширина блока с кнопками задаётся здесь (width / max-width).
+     Чтобы изменить расстояние между плитками — меняйте значение gap ниже (статичное, в px). */
+  .menu-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 100px;                 /* <-- расстояние между плитками меню (одинаковое по X и Y) */
+    width: 70%;                /* <-- общая ширина блока меню */
+    max-width: 1080px;          /* <-- ограничение максимальной ширины блока меню */
+  }
+
+  /* Размер/форма каждой плитки меню: aspect-ratio задаёт соотношение сторон,
+     font-size — размер текста "NxN". */
+  .menu-tile {
+    background: var(--tile);
+    border: none;
+    border-radius: 14px;
+    color: var(--tile-text);
+    font-family: 'PT Sans', sans-serif;
+    cursor: pointer;
+    box-shadow: 0 6px 0 var(--shadow-color);
+    aspect-ratio: 2 / 1;       /* <-- соотношение сторон плитки (ширина / высота) */
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .menu-tile:active {
+    transform: translateY(4px);
+    box-shadow: 0 2px 0 var(--shadow-color);
+  }
+
+  .tile-label {
+    font-size: 48px;           /* <-- размер текста на плитках меню */
+    font-weight: 700;
+  }
+
+  .tile-best {
+    display: none;
+    font-size: 18px;
+    font-weight: 700;
+    margin-top: 6px;
+    opacity: 0.85;
+  }
+
+  .menu-grid.show-records .tile-label {
+    display: none;
+  }
+
+  .menu-grid.show-records .tile-best {
+    display: block;
+    font-size: 30px;
+  }
+
+  /* ---------- GAME ---------- */
+
+  #game-screen {
+    display: none;
+    position: relative;
+    width: 100%;
+    height: 100%;
+  }
+
+  /* Сетка позиционируется абсолютно и центрируется относительно центра экрана,
+     поэтому при изменении масштаба (+/-) она растёт/уменьшается именно из центра. */
+  #grid-wrap {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+  }
+
+  #grid {
+    display: grid;
+    width: 100%;
+    height: 100%;
+  }
+
+  .cell {
+    background: var(--tile);
+    color: var(--tile-text);
+    font-family: 'PT Sans', sans-serif;
+    border: none;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    cursor: pointer;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    box-shadow: 0 6px 0 var(--shadow-color);
+    position: relative; /* нужно, чтобы z-index ниже работал предсказуемо */
+  }
+
+  .cell.static-empty {
+    cursor: default;
+  }
+
+  /* Амплитуда тряски при неверном клике — меняйте px-значения ниже. */
+  @keyframes shake-x {
+    0%   { transform: translateX(0); }
+    20%  { transform: translateX(-3px); }
+    40%  { transform: translateX(3px); }
+    60%  { transform: translateX(-2px); }
+    80%  { transform: translateX(2px); }
+    100% { transform: translateX(0); }
+  }
+
+  .cell.shake {
+    animation: shake-x 0.3s ease;
+  }
+
+  /* ---------- FINISH PLATE ---------- */
+
+  #finish-overlay {
+    display: none;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: var(--tile);
+    border-radius: 14px;
+    box-shadow: 0 6px 0 var(--shadow-color);
+    padding: 26px 44px;
+  }
+
+  #finish-overlay.show {
+    display: block;
+  }
+
+  #finish-time {
+    font-family: 'PT Sans', sans-serif;
+    font-size: 51px;
+    font-weight: 700;
+    color: var(--tile-text);
+    letter-spacing: 1px;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+</style>
+</head>
+<body>
+
+<div id="app">
+
+  <div id="menu-screen">
+    <div class="menu-grid" id="menu-grid"></div>
+  </div>
+
+  <div id="game-screen">
+    <div id="grid-wrap">
+      <div id="grid"></div>
+    </div>
+    <div id="finish-overlay">
+      <div id="finish-time"></div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  const menuGrid = document.getElementById('menu-grid');
+  const menuScreen = document.getElementById('menu-screen');
+  const gameScreen = document.getElementById('game-screen');
+  const grid = document.getElementById('grid');
+  const gridWrap = document.getElementById('grid-wrap');
+  const finishOverlay = document.getElementById('finish-overlay');
+  const finishTime = document.getElementById('finish-time');
+
+  const sizes = [2,3,4,5,6,7,8,9,10];
+  const oddWithGap = new Set([5,7,9]);
+  const topPad15 = new Set([2,3,4,5]);
+  const topPad10 = new Set([6,7]);
+
+  // Расстояние между плитками внутри таблицы:
+  // COL_GAP — зазор по бокам (между соседями в строке).
+  // ROW_GAP — зазор по вертикали = высота тени + COL_GAP,
+  // чтобы расстояние от низа тени до следующей плитки было равно боковому зазору.
+  const COL_GAP = 2;
+  const SHADOW_OFFSET = 6;
+  const ROW_GAP = SHADOW_OFFSET + COL_GAP;
+
+  const tileEls = {};
+
+  sizes.forEach(n => {
+    const btn = document.createElement('button');
+    btn.className = 'menu-tile';
+
+    const label = document.createElement('div');
+    label.className = 'tile-label';
+    label.textContent = `${n}x${n}`;
+
+    const best = document.createElement('div');
+    best.className = 'tile-best';
+    best.textContent = '—';
+
+    btn.appendChild(label);
+    btn.appendChild(best);
+    btn.addEventListener('click', () => startGame(n));
+    menuGrid.appendChild(btn);
+
+    tileEls[n] = best;
+  });
+
+  let currentSize = 0;
+  let currentTarget = 1;
+  let total = 0;
+  let startTime = 0;
+  let finished = false;
+  let inGame = false;
+  let baseSize = 0;
+  let scale = 1;
+
+  const scaleMemory = {};
+  const bestMemory = {};
+
+  function loadScale(n) {
+    try {
+      const v = localStorage.getItem('schulte-scale-' + n);
+      return v ? parseFloat(v) : 1;
+    } catch (e) {
+      return scaleMemory[n] || 1;
+    }
+  }
+
+  function saveScale(n, val) {
+    try {
+      localStorage.setItem('schulte-scale-' + n, val);
+    } catch (e) {
+      scaleMemory[n] = val;
+    }
+  }
+
+  function loadBest(n) {
+    try {
+      const v = localStorage.getItem('schulte-best-' + n);
+      return v ? parseFloat(v) : null;
+    } catch (e) {
+      return bestMemory[n] != null ? bestMemory[n] : null;
+    }
+  }
+
+  function saveBestIfBetter(n, ms) {
+    const cur = loadBest(n);
+    if (cur === null || ms < cur) {
+      try {
+        localStorage.setItem('schulte-best-' + n, ms);
+      } catch (e) {
+        bestMemory[n] = ms;
+      }
+    }
+  }
+
+  function refreshBestLabels() {
+    sizes.forEach(n => {
+      const ms = loadBest(n);
+      tileEls[n].textContent = ms !== null ? formatTime(ms) : '—';
+    });
+  }
+
+  function shuffle(arr) {
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+  }
+
+  function startGame(n) {
+    currentSize = n;
+    inGame = true;
+    scale = loadScale(n);
+    menuScreen.style.display = 'none';
+    gameScreen.style.display = 'block';
+    buildGrid(n);
+  }
+
+  function applyLayout(n) {
+    let padPct = 0;
+    if (topPad15.has(n)) padPct = 0.15;
+    else if (topPad10.has(n)) padPct = 0.10;
+
+    const padPx = window.innerHeight * padPct;
+    const availH = window.innerHeight - padPx * 2;
+    const availW = window.innerWidth * 0.96;
+    const size = Math.max(0, Math.min(availH, availW));
+
+    return size;
+  }
+
+  function resizeGrid() {
+    const size = baseSize * scale;
+    gridWrap.style.width = size + 'px';
+    gridWrap.style.height = size + 'px';
+
+    const cellW = (size - COL_GAP * (currentSize - 1)) / currentSize;
+    const cellH = (size - ROW_GAP * (currentSize - 1)) / currentSize;
+    const fontSize = Math.min(cellW, cellH) * 0.5;
+    grid.querySelectorAll('.cell').forEach(c => {
+      c.style.fontSize = fontSize + 'px';
+    });
+  }
+
+  function buildGrid(n) {
+    finished = false;
+    currentTarget = 1;
+    const hasGap = oddWithGap.has(n);
+    total = hasGap ? (n * n - 1) : (n * n);
+    finishOverlay.classList.remove('show');
+    gridWrap.style.display = '';
+
+    baseSize = applyLayout(n);
+
+    const numbers = shuffle(Array.from({length: total}, (_, i) => i + 1));
+    const padDigits = total <= 9 ? 1 : 2;
+
+    grid.innerHTML = '';
+    grid.style.gridTemplateColumns = `repeat(${n}, 1fr)`;
+    grid.style.gridTemplateRows = `repeat(${n}, 1fr)`;
+    grid.style.columnGap = COL_GAP + 'px';
+    grid.style.rowGap = ROW_GAP + 'px';
+
+    const centerIndex = hasGap ? Math.floor((n * n) / 2) : -1;
+
+    let numIdx = 0;
+    for (let i = 0; i < n * n; i++) {
+      const cell = document.createElement('button');
+      cell.style.zIndex = String(i); // нижние ряды (больше i) поверх теней верхних
+
+      if (i === centerIndex) {
+        cell.className = 'cell static-empty';
+      } else {
+        const num = numbers[numIdx++];
+        cell.className = 'cell';
+        cell.textContent = String(num).padStart(padDigits, '0');
+        cell.dataset.num = num;
+        cell.addEventListener('click', () => handleCellClick(cell, num));
+      }
+      grid.appendChild(cell);
+    }
+
+    resizeGrid();
+    startTime = performance.now();
+  }
+
+  function handleCellClick(cell, num) {
+    if (finished || cell.classList.contains('static-empty') || cell.dataset.cleared === '1') return;
+
+    if (num !== currentTarget) {
+      cell.classList.remove('shake');
+      void cell.offsetWidth;
+      cell.classList.add('shake');
+      return;
+    }
+
+    cell.textContent = '';
+    cell.dataset.cleared = '1';
+    cell.style.pointerEvents = 'none';
+    currentTarget++;
+
+    if (currentTarget > total) {
+      finishGame();
+    }
+  }
+
+  function formatTime(ms) {
+    const totalCs = Math.floor(ms / 10);
+    const cs = totalCs % 100;
+    const totalSec = Math.floor(totalCs / 100);
+    const sec = totalSec % 60;
+    const min = Math.floor(totalSec / 60);
+    const pad = v => String(v).padStart(2, '0');
+    return `${pad(min)}:${pad(sec)}:${pad(cs)}`;
+  }
+
+  function finishGame() {
+    finished = true;
+    const elapsed = performance.now() - startTime;
+    finishTime.textContent = formatTime(elapsed);
+    gridWrap.style.display = 'none';
+    finishOverlay.classList.add('show');
+    saveBestIfBetter(currentSize, elapsed);
+  }
+
+  function goToMenu() {
+    inGame = false;
+    gameScreen.style.display = 'none';
+    menuScreen.style.display = 'flex';
+    refreshBestLabels();
+  }
+
+  document.addEventListener('keydown', (e) => {
+    if (!inGame) {
+      if (e.code === 'KeyR') { // R (англ.) и К (рус.) — одна физическая клавиша
+        refreshBestLabels();
+        menuGrid.classList.add('show-records');
+      }
+      return;
+    }
+
+    if (e.code === 'Space') {
+      e.preventDefault();
+      buildGrid(currentSize);
+      return;
+    }
+    if (e.code === 'Escape') {
+      e.preventDefault();
+      goToMenu();
+      return;
+    }
+    if (e.key === '+' || e.key === '=' || e.code === 'NumpadAdd') {
+      e.preventDefault();
+      scale = +(scale + 0.1).toFixed(2);
+      saveScale(currentSize, scale);
+      resizeGrid();
+      return;
+    }
+    if (e.key === '-' || e.code === 'NumpadSubtract') {
+      e.preventDefault();
+      scale = Math.max(0.2, +(scale - 0.1).toFixed(2));
+      saveScale(currentSize, scale);
+      resizeGrid();
+      return;
+    }
+    if (e.code === 'KeyL') { // L (англ.) и Д (рус.) — одна физическая клавиша
+      e.preventDefault();
+      scale = 1;
+      saveScale(currentSize, scale);
+      resizeGrid();
+      return;
+    }
+  });
+
+  document.addEventListener('keyup', (e) => {
+    if (e.code === 'KeyR') {
+      menuGrid.classList.remove('show-records');
+    }
+  });
+
+  document.addEventListener('wheel', (e) => {
+    if (!inGame) return;
+    if (e.deltaY > 0) {
+      buildGrid(currentSize);
+    } else if (e.deltaY < 0) {
+      goToMenu();
+    }
+  }, { passive: true });
+
+  refreshBestLabels();
+</script>
+
+</body>
+</html>
