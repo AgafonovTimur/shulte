@@ -4,6 +4,129 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Таблицы Шульте</title>
+
+<!--
+=====================================================================
+ДОКУМЕНТАЦИЯ — ТАБЛИЦЫ ШУЛЬТЕ
+Один файл index.html, без бэкенда. Подходит для GitHub Pages:
+просто положить файл в репозиторий и включить Pages для ветки.
+=====================================================================
+
+ЦВЕТА И ШРИФТ
+- :root { --tile-text: #8e8e8e; } — цвет текста на всех плитках,
+  таймерах под плитками и иконке глаза (через --eye-color).
+- Шрифт — PT Sans Bold, подключён через Google Fonts в <head>.
+
+ГЛАВНОЕ МЕНЮ (выбор размера таблицы)
+- .menu-grid { gap; width; max-width } — отступы между плитками
+  и общая ширина блока меню.
+- Раскладка плиток 2/5/8, 3/6/9, 4/7/10 задаётся через
+  grid-auto-flow: column в .menu-grid (убрать строку — вернётся
+  обычный построчный порядок 2,3,4 / 5,6,7 / 8,9,10).
+- .menu-tile { font-size; aspect-ratio } — размер текста "NxN"
+  и пропорции плитки.
+- Под каждой плиткой — строка с рекордом (см. раздел "РЕКОРДЫ").
+
+РЕКОРДЫ (клавиша R, физически она же К в русской раскладке)
+- Никакой отдельной плашки/окна — просто текст под каждой плиткой
+  размера (.tile-record), обычно невидимый (visibility: hidden,
+  место зарезервировано, чтобы плитки не прыгали). Пока зажата
+  R/К — текст становится видимым и показывает лучшее время по
+  этому размеру для текущего уровня (или 00:00:00, если рекорда
+  ещё нет). Отпустили клавишу — текст снова скрыт.
+  Ключи в localStorage не изменились: schulte-best-<level>-<size>.
+- Внешний вид — в :root: --records-font-size, --records-gap
+  (отступ от плитки до строки рекорда), --records-color.
+- Ctrl+Shift+R — сбросить рекорды ТОЛЬКО текущего уровня (по всем
+  его размерам, с подтверждением через confirm()). Другие уровни
+  не затрагиваются.
+
+ОКНО ИНФОРМАЦИИ (клавиша I, физически она же Ш в русской раскладке)
+- Пока зажата I/Ш — во весь экран (поверх всего интерфейса)
+  показывается окно #info-overlay размером 600×800px (ширина×высота)
+  с текстом внутри (#info-box). Работает на любом экране. Отпустили
+  клавишу — окно пропадает, всё, что было на экране до этого,
+  видно как прежде (само содержимое остальных экранов никуда
+  не девалось, оно просто было перекрыто окном информации).
+- Содержимое пока заглушка ("123"), меняется в разметке
+  #info-box в <body>.
+
+ТАБЛИЦА В ИГРЕ
+- COL_GAP / SHADOW_OFFSET (в начале <script>) — боковой зазор
+  между плитками и высота "тени". Вертикальный зазор всегда
+  считается как SHADOW_OFFSET + COL_GAP, чтобы расстояние от низа
+  тени до следующей плитки было равно боковому зазору.
+- @keyframes shake-x — амплитуда тряски при неверном клике (px).
+  Используется только для уровней БЕЗ colorFeedback (см. УРОВНИ).
+- Для уровней с colorFeedback (по умолчанию — 3 и 4) вместо тряски
+  клетка на 0.1с красится в зелёный/красный: --flash-correct-color
+  (#b3ffb3 @ 50%), --flash-wrong-color (#ffcccc @ 50%) в :root.
+  Число при верном ответе не пропадает, клетка остаётся кликабельной —
+  повторный клик по уже отвеченной клетке мигает красным.
+- Масштаб всей таблицы: клавиши + / − (зум из центра экрана),
+  шаг 0.1, без верхнего предела, нижний предел 0.2. Сохраняется
+  в localStorage отдельно для каждого размера и уровня.
+
+ФИНАЛЬНАЯ ПЛАШКА (после прохождения таблицы)
+- #finish-overlay { padding } — размер самой плашки.
+- #finish-time { font-size } — размер шрифта времени.
+- #finish-errors { font-size } — размер строки "ОШИБОК: N"
+  (считается каждый неверный клик за попытку, сбрасывается
+  при каждом новом запуске/рестарте).
+- Для уровней с instantRestart (по умолчанию — 2 и 4) эта плашка
+  вообще не показывается: сразу стартует новая таблица того же
+  размера, а рекорд всё равно сохраняется в фоне (см. УРОВНИ).
+
+ГЛАЗ (клавиша U, физически она же Г в русской раскладке)
+- Работает только во время прохождения таблицы. На экранах
+  меню/выбора уровня глаза нет. Если глаз был включён и игрок
+  дошёл до конца — на экране с итоговым временем глаз прячется,
+  а при следующем запуске/рестарте таблицы появляется снова
+  (если не выключить).
+- Размер меняется клавишами P/З (+10px) и O/Щ (-10px).
+- Прозрачность меняется клавишами L/Д (+10%, до 100%)
+  и K/Л (-10%, до минимума 10%).
+- Оба параметра сохраняются в localStorage, но только если
+  отличаются от стандартных (120px и 100%).
+- Картинка глаза встроена в файл как base64 и перекрашивается
+  через CSS mask-image, поэтому меняется через --eye-color.
+
+СРЕДНЯЯ КНОПКА МЫШИ
+- Зажата — в центре экрана показывается следующая нужная
+  цифра/буква тем же шрифтом, что и в таблице. Отжата — пропадает.
+- Цвет подсказки — :root: --peek-color (сейчас красный).
+
+НАВИГАЦИЯ
+- Esc или прокрутка колеса вверх — выйти из таблицы в меню
+  размеров; из меню размеров прокрутка вверх — на экран уровней.
+- Space или прокрутка колеса вниз — рестарт текущей таблицы
+  (новое расположение, таймер и счётчик ошибок с нуля).
+
+УРОВНИ
+- Массив LEVELS в начале <script> — по умолчанию 12 уровней
+  (id level1..level12, названия "1".."12"), у каждого — полный
+  набор размеров 2x2..10x10, как раньше. Рекорды и масштаб
+  хранятся отдельно по id, поэтому уровни независимы друг
+  от друга. Чтобы поменять название/логику плитки — правьте
+  поля name / label(order, total) прямо в массиве.
+- Кнопки уровней — сетка по 2 в ряд (1-2, 3-4 ... 11-12) слева
+  внутри #menu-screen, показываются на любом уровне вместе
+  с плитками размеров (не отдельный экран). Мышью не двигаются,
+  положение/размер/зазор — только в CSS (:root: --level-btn-size,
+  --level-btn-font-size, --level-btn-gap, а также gap у
+  #menu-screen — расстояние между столбиком уровней и плитками
+  размеров).
+- Кнопка ВЫБРАННОГО сейчас уровня подсвечивается — текст становится
+  ярче (--level-btn-active-color в :root, класс .level-tile.active
+  в CSS), у остальных кнопок обычный цвет (--tile-text).
+
+ХРАНЕНИЕ ДАННЫХ
+- Все настройки (масштаб, рекорды, размер/прозрачность глаза)
+  хранятся в localStorage браузера — то есть на конкретном
+  устройстве/браузере, без сервера. На другом устройстве или
+  в другом браузере будут значения по умолчанию.
+===================================================================== -->
+
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=PT+Sans:wght@700&display=swap" rel="stylesheet">
@@ -13,7 +136,39 @@
     --tile: #5a5a5a;
     --tile-text: #8e8e8e;   /* <-- цвет цифр/текста на плитках меняется здесь */
     --shadow-color: #303030;
+
+    /* ---- иконка "глаз" (показывается по клавише U/Г, только во время игры) ---- */
+    --eye-size: 120px;             /* <-- размер иконки глаза (меняется клавишами P/З и O/Щ) */
+    --eye-color: var(--tile-text); /* <-- цвет иконки глаза */
+    --eye-opacity: 1;              /* <-- прозрачность глаза (меняется клавишами L/Д и K/Л) */
+
+    /* ---- слой РЕКОРДЫ (текст под плиткой размера, виден пока зажата R/К) ---- */
+    --records-color: var(--tile-text);   /* <-- цвет текста рекорда */
+    --records-font-size: 22px;           /* <-- размер шрифта строки рекорда */
+    --records-gap: 12px;                 /* <-- отступ от плитки до строки рекорда */
+
+    /* ---- кнопки уровней (вертикальный столбик, левый край главного экрана) ---- */
+    --level-btn-size: 60px;      /* <-- сторона квадратной кнопки уровня */
+    --level-btn-font-size: 22px; /* <-- размер цифры на кнопке уровня */
+    --level-btn-gap: 16px;       /* <-- расстояние между кнопками уровней */
+    --level-btn-active-color: #e4e4e4; /* <-- цвет текста ВЫБРАННОГО сейчас уровня (ярче обычного) */
+
+    /* ---- окно информации (клавиша I/Ш) ---- */
+    --info-font-size: 40px;      /* <-- размер шрифта текста в окне информации */
+
+    /* ---- подсказка по средней кнопке мыши ---- */
+    --peek-color: #e5484d;       /* <-- цвет подсказки (сейчас красный), меняется тут */
+
+    /* ---- подсветка клетки при верном/неверном ответе (уровни с colorFeedback) ----
+       Цвет и прозрачность — раздельные переменные (CSS ниже собирает их через
+       color-mix). Длительность мигания в мс — JS-константы FLASH_CORRECT_DURATION_MS
+       и FLASH_WRONG_DURATION_MS в начале <script> (ищи "Настройки мигания клеток"). */
+    --flash-correct-color: #b3ffb3;   /* <-- цвет плашки при верном ответе */
+    --flash-correct-opacity: 50%;     /* <-- прозрачность плашки при верном ответе */
+    --flash-wrong-color: #ffcccc;     /* <-- цвет плашки при неверном ответе */
+    --flash-wrong-opacity: 50%;       /* <-- прозрачность плашки при неверном ответе */
   }
+
 
   * { box-sizing: border-box; }
 
@@ -34,44 +189,94 @@
     height: 100vh;
   }
 
-  /* ---------- MENU ---------- */
+  /* ---------- LEVEL SELECT ----------
+     Вертикальный столбик кнопок уровней (по умолчанию 10, "1".."10").
+     Теперь это не отдельный экран, а левая колонка внутри #menu-screen —
+     кнопки уровней видны вместе с плитками размеров на любом уровне.
+     Положение — только через CSS ниже (gap/padding у #menu-screen).
+     Кнопки НЕ двигаются мышью — только правкой настроек тут
+     и данных в массиве LEVELS. */
 
-  #menu-screen {
+  .level-grid {
+    display: grid;
+    grid-template-columns: repeat(2, var(--level-btn-size)); /* <-- 2 кнопки в ряд (1-2, 3-4 ... 11-12) */
+    gap: var(--level-btn-gap);
+    flex-shrink: 0;
+  }
+
+  .level-tile {
+    background: var(--tile);
+    border: none;
+    border-radius: 12px;
+    color: var(--tile-text);
+    font-family: 'PT Sans', sans-serif;
+    font-size: var(--level-btn-font-size);
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow: 0 4px 0 var(--shadow-color);
+    width: var(--level-btn-size);
+    height: var(--level-btn-size);
     display: flex;
-    flex-direction: column;
     align-items: center;
     justify-content: center;
+  }
+
+  .level-tile:active {
+    transform: translateY(3px);
+    box-shadow: 0 1px 0 var(--shadow-color);
+  }
+
+  /* Кнопка выбранного сейчас уровня — текст чуть ярче остальных.
+     Цвет вынесен в отдельную переменную, чтобы менять его отдельно
+     от обычного цвета текста кнопок уровней (--tile-text). */
+  .level-tile.active {
+    color: var(--level-btn-active-color);
+  }
+
+  /* ---------- MENU (выбор размера таблицы) ---------- */
+
+  #menu-screen {
+    display: none;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    gap: 6vw;                   /* <-- расстояние между столбиком уровней и плитками размеров */
     width: 100%;
     height: 100%;
     padding: 20vh 24px;
+    position: relative;
   }
 
   /* Размер сетки меню: ширина блока с кнопками задаётся здесь (width / max-width).
-     Чтобы изменить расстояние между плитками — меняйте значение gap ниже (статичное, в px). */
+     Чтобы изменить расстояние между плитками — меняйте значение gap ниже (статичное, в px).
+     grid-auto-flow: column + порядок плиток 2..10 в разметке даёт раскладку:
+     2 5 8
+     3 6 9
+     4 7 10 */
   .menu-grid {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
+    grid-template-rows: repeat(3, 1fr);
+    grid-auto-flow: column;
     gap: 100px;                 /* <-- расстояние между плитками меню (одинаковое по X и Y) */
     width: 70%;                /* <-- общая ширина блока меню */
     max-width: 1080px;          /* <-- ограничение максимальной ширины блока меню */
   }
 
   /* Размер/форма каждой плитки меню: aspect-ratio задаёт соотношение сторон,
-     font-size — размер текста "NxN". */
+     font-size — размер текста "NxN" — увеличивай/уменьшай это значение. */
   .menu-tile {
     background: var(--tile);
     border: none;
     border-radius: 14px;
     color: var(--tile-text);
     font-family: 'PT Sans', sans-serif;
+    font-size: 48px;           /* <-- РАЗМЕР ТЕКСТА НА ПЛИТКАХ ГЛАВНОГО МЕНЮ (меняй тут) */
+    font-weight: 700;
     cursor: pointer;
     box-shadow: 0 6px 0 var(--shadow-color);
     aspect-ratio: 2 / 1;       /* <-- соотношение сторон плитки (ширина / высота) */
     width: 100%;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
   }
 
   .menu-tile:active {
@@ -79,26 +284,28 @@
     box-shadow: 0 2px 0 var(--shadow-color);
   }
 
-  .tile-label {
-    font-size: 48px;           /* <-- размер текста на плитках меню */
+  /* Обёртка вокруг плитки размера — стоит в сетке .menu-grid.
+     Внутри неё же — строка рекорда (.tile-record), обычно скрытая
+     (visibility: hidden — место зарезервировано, чтобы плитки не
+     прыгали), видимая только пока зажата клавиша R/К. */
+  .menu-cell {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .tile-record {
+    margin-top: var(--records-gap);   /* <-- отступ от плитки до строки рекорда */
+    font-family: 'PT Sans', sans-serif;
     font-weight: 700;
+    font-size: var(--records-font-size); /* <-- размер шрифта рекорда */
+    color: var(--records-color);         /* <-- цвет текста рекорда */
+    font-variant-numeric: tabular-nums;
+    visibility: hidden;                  /* <-- по умолчанию скрыт, но место занимает */
   }
 
-  .tile-best {
-    display: none;
-    font-size: 18px;
-    font-weight: 700;
-    margin-top: 6px;
-    opacity: 0.85;
-  }
-
-  .menu-grid.show-records .tile-label {
-    display: none;
-  }
-
-  .menu-grid.show-records .tile-best {
-    display: block;
-    font-size: 30px;
+  .tile-record.show {
+    visibility: visible;
   }
 
   /* ---------- GAME ---------- */
@@ -160,8 +367,67 @@
     animation: shake-x 0.3s ease;
   }
 
+  /* Подсветка клетки для уровней с colorFeedback (сейчас — 3 и 4):
+     верный ответ — зелёным на 0.3с, неверный — красным на 0.3с,
+     без тряски вбок (класс .shake для таких уровней не используется). */
+  .cell.flash-correct {
+    background: color-mix(in srgb, var(--flash-correct-color) var(--flash-correct-opacity), transparent);
+  }
+
+  .cell.flash-wrong {
+    background: color-mix(in srgb, var(--flash-wrong-color) var(--flash-wrong-opacity), transparent);
+  }
+
+  /* ---------- PEEK (средняя кнопка мыши — показать искомую цифру) ---------- */
+
+  #peek-overlay {
+    display: none;
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: var(--peek-color);  /* <-- цвет подсказки по средней кнопке мыши */
+    font-family: 'PT Sans', sans-serif;
+    font-weight: 700;
+    pointer-events: none;
+    z-index: 1000;
+  }
+
+  #peek-overlay.show { display: block; }
+
+  /* ---------- EYE (клавиша U/Г) ----------
+     Иконка глаза — картинка, перекрашиваемая через mask-image:
+     цвет задаёт --eye-color, прозрачность — --eye-opacity,
+     размер — --eye-size (объявлены в :root выше). */
+
+  #eye-overlay {
+    display: none;
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: var(--eye-size);
+    height: var(--eye-size);
+    background-color: var(--eye-color);
+    -webkit-mask-image: url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAIAAAACACAYAAADDPmHLAAABN2lDQ1BBZG9iZSBSR0IgKDE5OTgpAAAokZWPv0rDUBSHvxtFxaFWCOLgcCdRUGzVwYxJW4ogWKtDkq1JQ5ViEm6uf/oQjm4dXNx9AidHwUHxCXwDxamDQ4QMBYvf9J3fORzOAaNi152GUYbzWKt205Gu58vZF2aYAoBOmKV2q3UAECdxxBjf7wiA10277jTG+38yH6ZKAyNguxtlIYgK0L/SqQYxBMygn2oQD4CpTto1EE9AqZf7G1AKcv8ASsr1fBBfgNlzPR+MOcAMcl8BTB1da4Bakg7UWe9Uy6plWdLuJkEkjweZjs4zuR+HiUoT1dFRF8jvA2AxH2w3HblWtay99X/+PRHX82Vun0cIQCw9F1lBeKEuf1UYO5PrYsdwGQ7vYXpUZLs3cLcBC7dFtlqF8hY8Dn8AwMZP/fNTP8gAAAAJcEhZcwAACxMAAAsTAQCanBgAAArraVRYdFhNTDpjb20uYWRvYmUueG1wAAAAAAA8P3hwYWNrZXQgYmVnaW49Iu+7vyIgaWQ9Ilc1TTBNcENlaGlIenJlU3pOVGN6a2M5ZCI/PiA8eDp4bXBtZXRhIHhtbG5zOng9ImFkb2JlOm5zOm1ldGEvIiB4OnhtcHRrPSJBZG9iZSBYTVAgQ29yZSA1LjYtYzE0MiA3OS4xNjA5MjQsIDIwMTcvMDcvMTMtMDE6MDY6MzkgICAgICAgICI+IDxyZGY6UkRGIHhtbG5zOnJkZj0iaHR0cDovL3d3dy53My5vcmcvMTk5OS8wMi8yMi1yZGYtc3ludGF4LW5zIyI+IDxyZGY6RGVzY3JpcHRpb24gcmRmOmFib3V0PSIiIHhtbG5zOnhtcD0iaHR0cDovL25zLmFkb2JlLmNvbS94YXAvMS4wLyIgeG1sbnM6cGhvdG9zaG9wPSJodHRwOi8vbnMuYWRvYmUuY29tL3Bob3Rvc2hvcC8xLjAvIiB4bWxuczpkYz0iaHR0cDovL3B1cmwub3JnL2RjL2VsZW1lbnRzLzEuMS8iIHhtbG5zOnhtcE1NPSJodHRwOi8vbnMuYWRvYmUuY29tL3hhcC8xLjAvbW0vIiB4bWxuczpzdEV2dD0iaHR0cDovL25zLmFkb2JlLmNvbS94YXAvMS4wL3NUeXBlL1Jlc291cmNlRXZlbnQjIiB4bWxuczpzdFJlZj0iaHR0cDovL25zLmFkb2JlLmNvbS94YXAvMS4wL3NUeXBlL1Jlc291cmNlUmVmIyIgeG1sbnM6dGlmZj0iaHR0cDovL25zLmFkb2JlLmNvbS90aWZmLzEuMC8iIHhtbG5zOmV4aWY9Imh0dHA6Ly9ucy5hZG9iZS5jb20vZXhpZi8xLjAvIiB4bXA6Q3JlYXRvclRvb2w9IkFkb2JlIFBob3Rvc2hvcCBDQyAoV2luZG93cykiIHhtcDpDcmVhdGVEYXRlPSIyMDE4LTEyLTA0VDA3OjI1OjQyKzAzOjAwIiB4bXA6TWV0YWRhdGFEYXRlPSIyMDE4LTEyLTI0VDA3OjI3OjUxKzAzOjAwIiB4bXA6TW9kaWZ5RGF0ZT0iMjAxOC0xMi0yNFQwNzoyNzo1MSswMzowMCIgcGhvdG9zaG9wOkNvbG9yTW9kZT0iMyIgZGM6Zm9ybWF0PSJpbWFnZS9wbmciIHhtcE1NOkluc3RhbmNlSUQ9InhtcC5paWQ6ZWVhMmE0ODUtMDdmNi04NTRkLThiOGQtYzE1NTI2OGFjY2EwIiB4bXBNTTpEb2N1bWVudElEPSJhZG9iZTpkb2NpZDpwaG90b3Nob3A6MzNmYmMwMTQtMGI3ZC0xODQ2LWIzYTMtMWY4Y2YwYThmM2RlIiB4bXBNTTpPcmlnaW5hbERvY3VtZW50SUQ9InhtcC5kaWQ6Yzc0ZGYzMWEtMTQ5YS1iNzQ0LWJmNzItYjkyZTZjZmRlNzNlIiB0aWZmOk9yaWVudGF0aW9uPSIxIiB0aWZmOlhSZXNvbHV0aW9uPSI3MjAwMDAvMTAwMDAiIHRpZmY6WVJlc29sdXRpb249IjcyMDAwMC8xMDAwMCIgdGlmZjpSZXNvbHV0aW9uVW5pdD0iMiIgZXhpZjpDb2xvclNwYWNlPSI2NTUzNSIgZXhpZjpQaXhlbFhEaW1lbnNpb249IjEyOCIgZXhpZjpQaXhlbFlEaW1lbnNpb249IjEyOCI+IDxwaG90b3Nob3A6RG9jdW1lbnRBbmNlc3RvcnM+IDxyZGY6QmFnPiA8cmRmOmxpPnhtcC5kaWQ6MWRiMDRkNWMtOGQ4MC0zMDQ0LThlOTktNjVhMDRhNDhlMThkPC9yZGY6bGk+IDwvcmRmOkJhZz4gPC9waG90b3Nob3A6RG9jdW1lbnRBbmNlc3RvcnM+IDx4bXBNTTpIaXN0b3J5PiA8cmRmOlNlcT4gPHJkZjpsaSBzdEV2dDphY3Rpb249ImNyZWF0ZWQiIHN0RXZ0Omluc3RhbmNlSUQ9InhtcC5paWQ6Yzc0ZGYzMWEtMTQ5YS1iNzQ0LWJmNzItYjkyZTZjZmRlNzNlIiBzdEV2dDp3aGVuPSIyMDE4LTEyLTA0VDA3OjI1OjQyKzAzOjAwIiBzdEV2dDpzb2Z0d2FyZUFnZW50PSJBZG9iZSBQaG90b3Nob3AgQ0MgKFdpbmRvd3MpIi8+IDxyZGY6bGkgc3RFdnQ6YWN0aW9uPSJzYXZlZCIgc3RFdnQ6aW5zdGFuY2VJRD0ieG1wLmlpZDo1NjhiMTFkNS02YTc1LWI1NGQtYWRhMy0yYjZkZWEyYzQ0YjEiIHN0RXZ0OndoZW49IjIwMTgtMTItMjRUMDc6MjU6NTYrMDM6MDAiIHN0RXZ0OnNvZnR3YXJlQWdlbnQ9IkFkb2JlIFBob3Rvc2hvcCBDQyAoV2luZG93cykiIHN0RXZ0OmNoYW5nZWQ9Ii8iLz4gPHJkZjpsaSBzdEV2dDphY3Rpb249InNhdmVkIiBzdEV2dDppbnN0YW5jZUlEPSJ4bXAuaWlkOmFhMGQ3ZWYzLTY2MjAtODE0Zi04MTFhLWZkNDgzMzQyMjIxYiIgc3RFdnQ6d2hlbj0iMjAxOC0xMi0yNFQwNzoyNzo1MSswMzowMCIgc3RFdnQ6c29mdHdhcmVBZ2VudD0iQWRvYmUgUGhvdG9zaG9wIENDIChXaW5kb3dzKSIgc3RFdnQ6Y2hhbmdlZD0iLyIvPiA8cmRmOmxpIHN0RXZ0OmFjdGlvbj0iY29udmVydGVkIiBzdEV2dDpwYXJhbWV0ZXJzPSJmcm9tIGFwcGxpY2F0aW9uL3ZuZC5hZG9iZS5waG90b3Nob3AgdG8gaW1hZ2UvcG5nIi8+IDxyZGY6bGkgc3RFdnQ6YWN0aW9uPSJkZXJpdmVkIiBzdEV2dDpwYXJhbWV0ZXJzPSJjb252ZXJ0ZWQgZnJvbSBhcHBsaWNhdGlvbi92bmQuYWRvYmUucGhvdG9zaG9wIHRvIGltYWdlL3BuZyIvPiA8cmRmOmxpIHN0RXZ0OmFjdGlvbj0ic2F2ZWQiIHN0RXZ0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");
+    mask-image: url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAIAAAACACAYAAADDPmHLAAABN2lDQ1BBZG9iZSBSR0IgKDE5OTgpAAAokZWPv0rDUBSHvxtFxaFWCOLgcCdRUGzVwYxJW4ogWKtDkq1JQ5ViEm6uf/oQjm4dXNx9AidHwUHxCXwDxamDQ4QMBYvf9J3fORzOAaNi152GUYbzWKt205Gu58vZF2aYAoBOmKV2q3UAECdxxBjf7wiA10277jTG+38yH6ZKAyNguxtlIYgK0L/SqQYxBMygn2oQD4CpTto1EE9AqZf7G1AKcv8ASsr1fBBfgNlzPR+MOcAMcl8BTB1da4Bakg7UWe9Uy6plWdLuJkEkjweZjs4zuR+HiUoT1dFRF8jvA2AxH2w3HblWtay99X/+PRHX82Vun0cIQCw9F1lBeKEuf1UYO5PrYsdwGQ7vYXpUZLs3cLcBC7dFtlqF8hY8Dn8AwMZP/fNTP8gAAAAJcEhZcwAACxMAAAsTAQCanBgAAArraVRYdFhNTDpjb20uYWRvYmUueG1wAAAAAAA8P3hwYWNrZXQgYmVnaW49Iu+7vyIgaWQ9Ilc1TTBNcENlaGlIenJlU3pOVGN6a2M5ZCI/PiA8eDp4bXBtZXRhIHhtbG5zOng9ImFkb2JlOm5zOm1ldGEvIiB4OnhtcHRrPSJBZG9iZSBYTVAgQ29yZSA1LjYtYzE0MiA3OS4xNjA5MjQsIDIwMTcvMDcvMTMtMDE6MDY6MzkgICAgICAgICI+IDxyZGY6UkRGIHhtbG5zOnJkZj0iaHR0cDovL3d3dy53My5vcmcvMTk5OS8wMi8yMi1yZGYtc3ludGF4LW5zIyI+IDxyZGY6RGVzY3JpcHRpb24gcmRmOmFib3V0PSIiIHhtbG5zOnhtcD0iaHR0cDovL25zLmFkb2JlLmNvbS94YXAvMS4wLyIgeG1sbnM6cGhvdG9zaG9wPSJodHRwOi8vbnMuYWRvYmUuY29tL3Bob3Rvc2hvcC8xLjAvIiB4bWxuczpkYz0iaHR0cDovL3B1cmwub3JnL2RjL2VsZW1lbnRzLzEuMS8iIHhtbG5zOnhtcE1NPSJodHRwOi8vbnMuYWRvYmUuY29tL3hhcC8xLjAvbW0vIiB4bWxuczpzdEV2dD0iaHR0cDovL25zLmFkb2JlLmNvbS94YXAvMS4wL3NUeXBlL1Jlc291cmNlRXZlbnQjIiB4bWxuczpzdFJlZj0iaHR0cDovL25zLmFkb2JlLmNvbS94YXAvMS4wL3NUeXBlL1Jlc291cmNlUmVmIyIgeG1sbnM6dGlmZj0iaHR0cDovL25zLmFkb2JlLmNvbS90aWZmLzEuMC8iIHhtbG5zOmV4aWY9Imh0dHA6Ly9ucy5hZG9iZS5jb20vZXhpZi8xLjAvIiB4bXA6Q3JlYXRvclRvb2w9IkFkb2JlIFBob3Rvc2hvcCBDQyAoV2luZG93cykiIHhtcDpDcmVhdGVEYXRlPSIyMDE4LTEyLTA0VDA3OjI1OjQyKzAzOjAwIiB4bXA6TWV0YWRhdGFEYXRlPSIyMDE4LTEyLTI0VDA3OjI3OjUxKzAzOjAwIiB4bXA6TW9kaWZ5RGF0ZT0iMjAxOC0xMi0yNFQwNzoyNzo1MSswMzowMCIgcGhvdG9zaG9wOkNvbG9yTW9kZT0iMyIgZGM6Zm9ybWF0PSJpbWFnZS9wbmciIHhtcE1NOkluc3RhbmNlSUQ9InhtcC5paWQ6ZWVhMmE0ODUtMDdmNi04NTRkLThiOGQtYzE1NTI2OGFjY2EwIiB4bXBNTTpEb2N1bWVudElEPSJhZG9iZTpkb2NpZDpwaG90b3Nob3A6MzNmYmMwMTQtMGI3ZC0xODQ2LWIzYTMtMWY4Y2YwYThmM2RlIiB4bXBNTTpPcmlnaW5hbERvY3VtZW50SUQ9InhtcC5kaWQ6Yzc0ZGYzMWEtMTQ5YS1iNzQ0LWJmNzItYjkyZTZjZmRlNzNlIiB0aWZmOk9yaWVudGF0aW9uPSIxIiB0aWZmOlhSZXNvbHV0aW9uPSI3MjAwMDAvMTAwMDAiIHRpZmY6WVJlc29sdXRpb249IjcyMDAwMC8xMDAwMCIgdGlmZjpSZXNvbHV0aW9uVW5pdD0iMiIgZXhpZjpDb2xvclNwYWNlPSI2NTUzNSIgZXhpZjpQaXhlbFhEaW1lbnNpb249IjEyOCIgZXhpZjpQaXhlbFlEaW1lbnNpb249IjEyOCI+IDxwaG90b3Nob3A6RG9jdW1lbnRBbmNlc3RvcnM+IDxyZGY6QmFnPiA8cmRmOmxpPnhtcC5kaWQ6MWRiMDRkNWMtOGQ4MC0zMDQ0LThlOTktNjVhMDRhNDhlMThkPC9yZGY6bGk+IDwvcmRmOkJhZz4gPC9waG90b3Nob3A6RG9jdW1lbnRBbmNlc3RvcnM+IDx4bXBNTTpIaXN0b3J5PiA8cmRmOlNlcT4gPHJkZjpsaSBzdEV2dDphY3Rpb249ImNyZWF0ZWQiIHN0RXZ0Omluc3RhbmNlSUQ9InhtcC5paWQ6Yzc0ZGYzMWEtMTQ5YS1iNzQ0LWJmNzItYjkyZTZjZmRlNzNlIiBzdEV2dDp3aGVuPSIyMDE4LTEyLTA0VDA3OjI1OjQyKzAzOjAwIiBzdEV2dDpzb2Z0d2FyZUFnZW50PSJBZG9iZSBQaG90b3Nob3AgQ0MgKFdpbmRvd3MpIi8+IDxyZGY6bGkgc3RFdnQ6YWN0aW9uPSJzYXZlZCIgc3RFdnQ6aW5zdGFuY2VJRD0ieG1wLmlpZDo1NjhiMTFkNS02YTc1LWI1NGQtYWRhMy0yYjZkZWEyYzQ0YjEiIHN0RXZ0OndoZW49IjIwMTgtMTItMjRUMDc6MjU6NTYrMDM6MDAiIHN0RXZ0OnNvZnR3YXJlQWdlbnQ9IkFkb2JlIFBob3Rvc2hvcCBDQyAoV2luZG93cykiIHN0RXZ0OmNoYW5nZWQ9Ii8iLz4gPHJkZjpsaSBzdEV2dDphY3Rpb249InNhdmVkIiBzdEV2dDppbnN0YW5jZUlEPSJ4bXAuaWlkOmFhMGQ3ZWYzLTY2MjAtODE0Zi04MTFhLWZkNDgzMzQyMjIxYiIgc3RFdnQ6d2hlbj0iMjAxOC0xMi0yNFQwNzoyNzo1MSswMzowMCIgc3RFdnQ6c29mdHdhcmVBZ2VudD0iQWRvYmUgUGhvdG9zaG9wIENDIChXaW5kb3dzKSIgc3RFdnQ6Y2hhbmdlZD0iLyIvPiA8cmRmOmxpIHN0RXZ0OmFjdGlvbj0iY29udmVydGVkIiBzdEV2dDpwYXJhbWV0ZXJzPSJmcm9tIGFwcGxpY2F0aW9uL3ZuZC5hZG9iZS5waG90b3Nob3AgdG8gaW1hZ2UvcG5nIi8+IDxyZGY6bGkgc3RFdnQ6YWN0aW9uPSJkZXJpdmVkIiBzdEV2dDpwYXJhbWV0ZXJzPSJjb252ZXJ0ZWQgZnJvbSBhcHBsaWNhdGlvbi92bmQuYWRvYmUucGhvdG9zaG9wIHRvIGltYWdlL3BuZyIvPiA8cmRmOmxpIHN0RXZ0OmFjdGlvbj0ic2F2ZWQiIHN0RXZ0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");
+    -webkit-mask-size: contain;
+    mask-size: contain;
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+    mask-position: center;
+    opacity: var(--eye-opacity);
+    pointer-events: none;
+    z-index: 999;
+  }
+
+  #eye-overlay.show { display: block; }
+
   /* ---------- FINISH PLATE ---------- */
 
+  /* Чтобы увеличить плашку с результатом — меняй padding ниже.
+     Чтобы увеличить шрифт времени — меняй font-size в #finish-time. */
   #finish-overlay {
     display: none;
     position: absolute;
@@ -171,7 +437,8 @@
     background: var(--tile);
     border-radius: 14px;
     box-shadow: 0 6px 0 var(--shadow-color);
-    padding: 26px 44px;
+    padding: 26px 44px;        /* <-- РАЗМЕР ОКНА С ТАЙМЕРОМ (увеличить — увеличить padding) */
+    text-align: center;
   }
 
   #finish-overlay.show {
@@ -180,12 +447,57 @@
 
   #finish-time {
     font-family: 'PT Sans', sans-serif;
-    font-size: 51px;
+    font-size: 51px;           /* <-- РАЗМЕР ШРИФТА ИТОГОВОГО ТАЙМЕРА */
     font-weight: 700;
     color: var(--tile-text);
     letter-spacing: 1px;
     font-variant-numeric: tabular-nums;
     white-space: nowrap;
+  }
+
+  #finish-errors {
+    margin-top: 10px;
+    font-family: 'PT Sans', sans-serif;
+    font-size: 24px;           /* <-- размер строки "Ошибок: N" (увеличено на 20%) */
+    font-weight: 700;
+    color: var(--tile-text);
+    opacity: 0.85;
+  }
+
+  /* ---------- ОКНО ИНФОРМАЦИИ (клавиша I/Ш, во весь экран, 600×800) ----------
+     Пока зажата I/Ш — перекрывает собой весь остальной интерфейс.
+     Отпустили клавишу — окно прячется, всё, что было под ним,
+     видно как прежде (оно никуда не девалось, просто было закрыто). */
+
+  #info-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: var(--bg);      /* <-- перекрывает интерфейс полностью */
+    align-items: center;
+    justify-content: center;
+    z-index: 5000;
+  }
+
+  #info-overlay.show { display: flex; }
+
+  #info-box {
+    width: 600px;                /* <-- ширина окна информации */
+    height: 800px;                /* <-- высота окна информации */
+    max-width: 96vw;
+    max-height: 96vh;
+    background: var(--tile);
+    border-radius: 14px;
+    box-shadow: 0 6px 0 var(--shadow-color);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 32px;
+    color: var(--tile-text);
+    font-family: 'PT Sans', sans-serif;
+    font-weight: 700;
+    font-size: var(--info-font-size); /* <-- размер шрифта текста внутри окна */
   }
 </style>
 </head>
@@ -194,6 +506,7 @@
 <div id="app">
 
   <div id="menu-screen">
+    <div class="level-grid" id="level-grid"></div>
     <div class="menu-grid" id="menu-grid"></div>
   </div>
 
@@ -203,12 +516,93 @@
     </div>
     <div id="finish-overlay">
       <div id="finish-time"></div>
+      <div id="finish-errors"></div>
     </div>
+  </div>
+
+  <div id="peek-overlay"></div>
+
+  <div id="eye-overlay"></div>
+
+  <div id="info-overlay">
+    <div id="info-box">123</div>
   </div>
 
 </div>
 
 <script>
+  /* =========================================================
+     УРОВНИ
+     По умолчанию 12 уровней (id level1..level12), у каждого —
+     полный набор размеров 2x2..10x10, как в обычном меню.
+     Рекорды и масштаб хранятся отдельно по id, так что уровни
+     не мешают друг другу. Чтобы поменять название кнопки или
+     то, что показывается на плитке вместо числа — правьте
+     name / label(order, total) прямо здесь.
+
+     У каждого уровня четыре флага-модификатора поведения игры:
+     - instantRestart: true — после прохождения таблицы плашка
+       с временем/ошибками НЕ показывается, сразу стартует новая
+       таблица того же размера. Рекорд при этом всё равно
+       сохраняется и виден в меню по удержанию R/К, как обычно.
+     - colorFeedback: true — при верном ответе клетка на
+       FLASH_CORRECT_DURATION_MS красится в --flash-correct-color
+       (с прозрачностью --flash-correct-opacity), при неверном —
+       на FLASH_WRONG_DURATION_MS в --flash-wrong-color (с
+       --flash-wrong-opacity) БЕЗ тряски вбок; число на клетке при
+       верном ответе не исчезает, клетка остаётся кликабельной —
+       повторный клик по уже отвеченной клетке тоже мигает красным.
+       Цвета/прозрачность — в :root, длительности — JS-константы
+       FLASH_CORRECT_DURATION_MS / FLASH_WRONG_DURATION_MS (ищи
+       "Настройки мигания клеток" в <script>).
+     - revealLetter: true — при верном ответе число заменяется
+       случайной заглавной русской буквой (ALPHABET_RU в <script>)
+       вместо исчезновения.
+     - clickAnywhere: true — клик по конкретной клетке не нужен,
+       засчитывается клик в ЛЮБОЕ место экрана (см. глобальный
+       обработчик click рядом с buildGrid).
+     Включены: 2 — instantRestart; 3 — colorFeedback; 4 — оба;
+     5/6 — трёхзначные числа на всех размерах (переопределён label),
+     6 вдобавок с instantRestart; 7/8 — revealLetter, 8 вдобавок
+     с instantRestart; 9/10 — clickAnywhere, 10 вдобавок с
+     instantRestart; 11/12 — clickAnywhere + colorFeedback (клик
+     где угодно на экране + зелёная подсветка верной клетки теми же
+     параметрами цвета/прозрачности/длительности, что и у 3/4),
+     12 вдобавок с instantRestart. Правьте/добавляйте по этому же
+     принципу.
+     ========================================================= */
+  const LEVELS = [];
+  for (let i = 1; i <= 12; i++) {
+    LEVELS.push({
+      id: 'level' + i,
+      name: String(i),
+      label: (order, total) => String(order).padStart(total <= 9 ? 1 : 2, '0'),
+      instantRestart: false,
+      colorFeedback: false,
+      revealLetter: false,
+      clickAnywhere: false
+    });
+  }
+  LEVELS[1].instantRestart = true;                       // уровень 2
+  LEVELS[2].colorFeedback = true;                         // уровень 3
+  LEVELS[3].instantRestart = true;                        // уровень 4
+  LEVELS[3].colorFeedback = true;                         // уровень 4
+  LEVELS[4].label = (order) => String(order).padStart(3, '0'); // уровень 5 — трёхзначные числа
+  LEVELS[5].label = (order) => String(order).padStart(3, '0'); // уровень 6 — трёхзначные числа
+  LEVELS[5].instantRestart = true;                        // уровень 6
+  LEVELS[6].revealLetter = true;                          // уровень 7 — верный ответ превращается в букву
+  LEVELS[7].revealLetter = true;                          // уровень 8 — то же + мгновенный рестарт
+  LEVELS[7].instantRestart = true;                        // уровень 8
+  LEVELS[8].clickAnywhere = true;                         // уровень 9 — клик где угодно на экране
+  LEVELS[9].clickAnywhere = true;                         // уровень 10 — то же + мгновенный рестарт
+  LEVELS[9].instantRestart = true;                        // уровень 10
+  LEVELS[10].clickAnywhere = true;                        // уровень 11 — клик где угодно + зелёная подсветка
+  LEVELS[10].colorFeedback = true;                        // уровень 11
+  LEVELS[11].clickAnywhere = true;                        // уровень 12 — то же + мгновенный рестарт
+  LEVELS[11].colorFeedback = true;                        // уровень 12
+  LEVELS[11].instantRestart = true;                       // уровень 12
+
+  const levelGrid = document.getElementById('level-grid');
   const menuGrid = document.getElementById('menu-grid');
   const menuScreen = document.getElementById('menu-screen');
   const gameScreen = document.getElementById('game-screen');
@@ -216,6 +610,10 @@
   const gridWrap = document.getElementById('grid-wrap');
   const finishOverlay = document.getElementById('finish-overlay');
   const finishTime = document.getElementById('finish-time');
+  const finishErrors = document.getElementById('finish-errors');
+  const peekOverlay = document.getElementById('peek-overlay');
+  const eyeOverlay = document.getElementById('eye-overlay');
+  const infoOverlay = document.getElementById('info-overlay');
 
   const sizes = [2,3,4,5,6,7,8,9,10];
   const oddWithGap = new Set([5,7,9]);
@@ -224,32 +622,61 @@
 
   // Расстояние между плитками внутри таблицы:
   // COL_GAP — зазор по бокам (между соседями в строке).
-  // ROW_GAP — зазор по вертикали = высота тени + COL_GAP,
-  // чтобы расстояние от низа тени до следующей плитки было равно боковому зазору.
+  // ROW_GAP — зазор по вертикали = высота тени + COL_GAP.
   const COL_GAP = 2;
   const SHADOW_OFFSET = 6;
   const ROW_GAP = SHADOW_OFFSET + COL_GAP;
 
-  const tileEls = {};
+  let currentLevelId = LEVELS[0].id;
+  let currentLevel = LEVELS[0];
 
+  // ---------- уровни ----------
+  const levelButtonEls = {};
+  LEVELS.forEach(level => {
+    const btn = document.createElement('button');
+    btn.className = 'level-tile';
+    btn.textContent = level.name;
+    btn.addEventListener('click', () => {
+      currentLevelId = level.id;
+      currentLevel = level;
+      updateActiveLevelButton();
+      showMenu();
+    });
+    levelGrid.appendChild(btn);
+    levelButtonEls[level.id] = btn;
+  });
+
+  // Подсвечивает кнопку текущего уровня цветом --level-btn-active-color
+  // (см. класс .level-tile.active в CSS), остальные — обычным цветом.
+  function updateActiveLevelButton() {
+    LEVELS.forEach(level => {
+      levelButtonEls[level.id].classList.toggle('active', level.id === currentLevelId);
+    });
+  }
+  updateActiveLevelButton();
+
+  // ---------- плитки размеров таблицы + строка рекорда под каждой ----------
+  // Строка рекорда (.tile-record) обычно скрыта (visibility: hidden) и
+  // становится видимой только пока зажата клавиша R/К — см. updateRecordsVisibility().
+  const tileRecordEls = {};
   sizes.forEach(n => {
+    const wrap = document.createElement('div');
+    wrap.className = 'menu-cell';
+
     const btn = document.createElement('button');
     btn.className = 'menu-tile';
-
-    const label = document.createElement('div');
-    label.className = 'tile-label';
-    label.textContent = `${n}x${n}`;
-
-    const best = document.createElement('div');
-    best.className = 'tile-best';
-    best.textContent = '—';
-
-    btn.appendChild(label);
-    btn.appendChild(best);
+    btn.textContent = `${n}x${n}`;
     btn.addEventListener('click', () => startGame(n));
-    menuGrid.appendChild(btn);
 
-    tileEls[n] = best;
+    const rec = document.createElement('div');
+    rec.className = 'tile-record';
+    rec.textContent = '00:00:00';
+
+    wrap.appendChild(btn);
+    wrap.appendChild(rec);
+    menuGrid.appendChild(wrap);
+
+    tileRecordEls[n] = rec;
   });
 
   let currentSize = 0;
@@ -260,33 +687,38 @@
   let inGame = false;
   let baseSize = 0;
   let scale = 1;
+  let mistakes = 0;
+  let currentFontSize = 24;
 
   const scaleMemory = {};
   const bestMemory = {};
 
+  function scaleKey(n) { return 'schulte-scale-' + currentLevelId + '-' + n; }
+  function bestKey(n) { return 'schulte-best-' + currentLevelId + '-' + n; }
+
   function loadScale(n) {
     try {
-      const v = localStorage.getItem('schulte-scale-' + n);
+      const v = localStorage.getItem(scaleKey(n));
       return v ? parseFloat(v) : 1;
     } catch (e) {
-      return scaleMemory[n] || 1;
+      return scaleMemory[scaleKey(n)] || 1;
     }
   }
 
   function saveScale(n, val) {
     try {
-      localStorage.setItem('schulte-scale-' + n, val);
+      localStorage.setItem(scaleKey(n), val);
     } catch (e) {
-      scaleMemory[n] = val;
+      scaleMemory[scaleKey(n)] = val;
     }
   }
 
   function loadBest(n) {
     try {
-      const v = localStorage.getItem('schulte-best-' + n);
+      const v = localStorage.getItem(bestKey(n));
       return v ? parseFloat(v) : null;
     } catch (e) {
-      return bestMemory[n] != null ? bestMemory[n] : null;
+      return bestMemory[bestKey(n)] != null ? bestMemory[bestKey(n)] : null;
     }
   }
 
@@ -294,18 +726,66 @@
     const cur = loadBest(n);
     if (cur === null || ms < cur) {
       try {
-        localStorage.setItem('schulte-best-' + n, ms);
+        localStorage.setItem(bestKey(n), ms);
       } catch (e) {
-        bestMemory[n] = ms;
+        bestMemory[bestKey(n)] = ms;
       }
     }
   }
 
-  function refreshBestLabels() {
+  // Сброс рекордов ТОЛЬКО текущего уровня (по всем его размерам) — Ctrl+Shift+R.
+  function resetCurrentLevelRecords() {
+    if (!confirm(`Сбросить все рекорды уровня "${currentLevel.name}"?`)) return;
     sizes.forEach(n => {
-      const ms = loadBest(n);
-      tileEls[n].textContent = ms !== null ? formatTime(ms) : '—';
+      try { localStorage.removeItem(bestKey(n)); } catch (e) {}
+      delete bestMemory[bestKey(n)];
     });
+    if (recordsOn) refreshTileRecords();
+  }
+
+  function showMenu() {
+    inGame = false;
+    gameScreen.style.display = 'none';
+    menuScreen.style.display = 'flex';
+    updateEyeVisibility();
+  }
+
+  // ---------- глаз: размер и прозрачность (сохраняются, если меняли) ----------
+  const EYE_DEFAULT_SIZE = 120;
+  const EYE_DEFAULT_OPACITY = 1;
+  let eyeSize = loadNum('schulte-eye-size', EYE_DEFAULT_SIZE);
+  let eyeOpacity = loadNum('schulte-eye-opacity', EYE_DEFAULT_OPACITY);
+
+  function loadNum(key, def) {
+    try {
+      const v = localStorage.getItem(key);
+      return v ? parseFloat(v) : def;
+    } catch (e) {
+      return def;
+    }
+  }
+
+  function saveNum(key, val) {
+    try { localStorage.setItem(key, val); } catch (e) {}
+  }
+
+  function applyEyeStyle() {
+    document.documentElement.style.setProperty('--eye-size', eyeSize + 'px');
+    document.documentElement.style.setProperty('--eye-opacity', eyeOpacity);
+  }
+  applyEyeStyle();
+
+  // Глаз доступен только во время прохождения таблицы (inGame), пропадает
+  // на экране с итоговым таймером и снова появляется при старте/рестарте,
+  // если был включён. В меню/выборе уровня глаза быть не должно.
+  let eyeOn = false;
+
+  function updateEyeVisibility() {
+    if (inGame && eyeOn && !finished) {
+      eyeOverlay.classList.add('show');
+    } else {
+      eyeOverlay.classList.remove('show');
+    }
   }
 
   function shuffle(arr) {
@@ -345,15 +825,16 @@
 
     const cellW = (size - COL_GAP * (currentSize - 1)) / currentSize;
     const cellH = (size - ROW_GAP * (currentSize - 1)) / currentSize;
-    const fontSize = Math.min(cellW, cellH) * 0.5;
+    currentFontSize = Math.min(cellW, cellH) * 0.5;
     grid.querySelectorAll('.cell').forEach(c => {
-      c.style.fontSize = fontSize + 'px';
+      c.style.fontSize = currentFontSize + 'px';
     });
   }
 
   function buildGrid(n) {
     finished = false;
     currentTarget = 1;
+    mistakes = 0;
     const hasGap = oddWithGap.has(n);
     total = hasGap ? (n * n - 1) : (n * n);
     finishOverlay.classList.remove('show');
@@ -361,8 +842,7 @@
 
     baseSize = applyLayout(n);
 
-    const numbers = shuffle(Array.from({length: total}, (_, i) => i + 1));
-    const padDigits = total <= 9 ? 1 : 2;
+    const order = shuffle(Array.from({length: total}, (_, i) => i + 1));
 
     grid.innerHTML = '';
     grid.style.gridTemplateColumns = `repeat(${n}, 1fr)`;
@@ -380,32 +860,94 @@
       if (i === centerIndex) {
         cell.className = 'cell static-empty';
       } else {
-        const num = numbers[numIdx++];
+        const ord = order[numIdx++];
         cell.className = 'cell';
-        cell.textContent = String(num).padStart(padDigits, '0');
-        cell.dataset.num = num;
-        cell.addEventListener('click', () => handleCellClick(cell, num));
+        cell.textContent = currentLevel.label(ord, total);
+        cell.dataset.ord = ord;
+        // На уровнях с clickAnywhere (9 и 10) клик по конкретной клетке не нужен —
+        // засчитывает клик где угодно на экране, см. глобальный обработчик ниже.
+        if (!currentLevel.clickAnywhere) {
+          cell.addEventListener('click', () => handleCellClick(cell, ord));
+        }
       }
       grid.appendChild(cell);
     }
 
     resizeGrid();
     startTime = performance.now();
+    updateEyeVisibility();
   }
 
-  function handleCellClick(cell, num) {
-    if (finished || cell.classList.contains('static-empty') || cell.dataset.cleared === '1') return;
+  // ---------- УРОВНИ 9/10/11/12: клик в ЛЮБОЕ место ИГРОВОГО ЭКРАНА засчитывается
+  // за клик по клетке с текущим искомым числом (см. флаг clickAnywhere у уровня).
+  // Важно: проверяем, что клик пришёлся именно на #game-screen, а не на плитку
+  // размера/уровня в меню — иначе тот же клик, которым запускается уровень,
+  // сразу же засчитывал бы и первую цифру. ----------
+  document.addEventListener('click', (e) => {
+    if (!inGame || finished || !currentLevel.clickAnywhere) return;
+    if (!gameScreen.contains(e.target)) return;
+    const targetCell = grid.querySelector(`.cell[data-ord="${currentTarget}"]`);
+    if (targetCell) handleCellClick(targetCell, currentTarget);
+  });
 
-    if (num !== currentTarget) {
-      cell.classList.remove('shake');
-      void cell.offsetWidth;
-      cell.classList.add('shake');
+  // Настройки мигания клеток для уровней с colorFeedback (сейчас — 3 и 4).
+  // Цвет и прозрачность — CSS-переменные в :root (--flash-correct-color/opacity,
+  // --flash-wrong-color/opacity). Длительность — тут, в миллисекундах.
+  const FLASH_CORRECT_DURATION_MS = 100;
+  const FLASH_WRONG_DURATION_MS = 100;
+
+  // Общая функция мигания клетки цветом на заданную длительность (мс).
+  function flashCell(cell, cls, durationMs) {
+    cell.classList.remove(cls);
+    void cell.offsetWidth;
+    cell.classList.add(cls);
+    setTimeout(() => cell.classList.remove(cls), durationMs);
+  }
+
+  // Алфавит для уровней с revealLetter (7 и 8) — заглавные русские буквы.
+  const ALPHABET_RU = 'АБВГДЕЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯ';
+  function randomRussianLetter() {
+    return ALPHABET_RU[Math.floor(Math.random() * ALPHABET_RU.length)];
+  }
+
+  function handleCellClick(cell, ord) {
+    if (finished || cell.classList.contains('static-empty')) return;
+
+    if (cell.dataset.cleared === '1') {
+      // Уже отвечена правильно. На обычных уровнях клетка после верного
+      // ответа некликабельна (см. ниже), поэтому сюда попадаем только
+      // на уровнях с colorFeedback — там повторный клик мигает красным.
+      if (currentLevel.colorFeedback) flashCell(cell, 'flash-wrong', FLASH_WRONG_DURATION_MS);
       return;
     }
 
-    cell.textContent = '';
+    if (ord !== currentTarget) {
+      mistakes++;
+      if (currentLevel.colorFeedback) {
+        flashCell(cell, 'flash-wrong', FLASH_WRONG_DURATION_MS);
+      } else {
+        cell.classList.remove('shake');
+        void cell.offsetWidth;
+        cell.classList.add('shake');
+      }
+      return;
+    }
+
     cell.dataset.cleared = '1';
-    cell.style.pointerEvents = 'none';
+
+    if (currentLevel.colorFeedback) {
+      // Число не исчезает, клетка остаётся кликабельной специально
+      // для того, чтобы повторный клик по ней мигал красным (см. выше).
+      flashCell(cell, 'flash-correct', FLASH_CORRECT_DURATION_MS);
+    } else if (currentLevel.revealLetter) {
+      // Число заменяется случайной заглавной русской буквой и остаётся видимым.
+      cell.textContent = randomRussianLetter();
+      cell.style.pointerEvents = 'none';
+    } else {
+      cell.textContent = '';
+      cell.style.pointerEvents = 'none';
+    }
+
     currentTarget++;
 
     if (currentTarget > total) {
@@ -424,29 +966,104 @@
   }
 
   function finishGame() {
-    finished = true;
     const elapsed = performance.now() - startTime;
-    finishTime.textContent = formatTime(elapsed);
-    gridWrap.style.display = 'none';
-    finishOverlay.classList.add('show');
-    saveBestIfBetter(currentSize, elapsed);
-  }
+    saveBestIfBetter(currentSize, elapsed); // рекорд считается всегда, даже при instantRestart
 
-  function goToMenu() {
-    inGame = false;
-    gameScreen.style.display = 'none';
-    menuScreen.style.display = 'flex';
-    refreshBestLabels();
-  }
-
-  document.addEventListener('keydown', (e) => {
-    if (!inGame) {
-      if (e.code === 'KeyR') { // R (англ.) и К (рус.) — одна физическая клавиша
-        refreshBestLabels();
-        menuGrid.classList.add('show-records');
-      }
+    if (currentLevel.instantRestart) {
+      // Без плашки с результатом — сразу новая таблица того же размера.
+      buildGrid(currentSize);
       return;
     }
+
+    finished = true;
+    finishTime.textContent = formatTime(elapsed);
+    finishErrors.textContent = 'ОШИБОК: ' + mistakes;
+    gridWrap.style.display = 'none';
+    finishOverlay.classList.add('show');
+    updateEyeVisibility();
+  }
+
+  // ---------- РЕКОРДЫ: строка под каждой плиткой, видна пока зажата R/К ----------
+  let recordsOn = false;
+
+  function refreshTileRecords() {
+    sizes.forEach(n => {
+      const ms = loadBest(n);
+      tileRecordEls[n].textContent = ms !== null ? formatTime(ms) : '00:00:00';
+    });
+  }
+
+  function updateRecordsVisibility() {
+    if (recordsOn) refreshTileRecords();
+    sizes.forEach(n => {
+      tileRecordEls[n].classList.toggle('show', recordsOn);
+    });
+  }
+
+  // ---------- ОКНО ИНФОРМАЦИИ: во весь экран, пока зажата I/Ш ----------
+  let infoOn = false;
+
+  function updateInfoVisibility() {
+    infoOverlay.classList.toggle('show', infoOn);
+  }
+
+  // ---------- клавиатура ----------
+  document.addEventListener('keydown', (e) => {
+    if (e.ctrlKey && e.shiftKey && e.code === 'KeyR') { // Ctrl+Shift+R — сброс рекордов ТЕКУЩЕГО уровня
+      e.preventDefault();
+      resetCurrentLevelRecords();
+      return;
+    }
+
+    if (e.code === 'KeyR') { // R (англ.) / К (рус.) — показать рекорды под плитками, пока зажата
+      e.preventDefault();
+      if (!recordsOn) {
+        recordsOn = true;
+        updateRecordsVisibility();
+      }
+    }
+
+    if (e.code === 'KeyI') { // I (англ.) / Ш (рус.) — окно информации на весь экран, пока зажата
+      e.preventDefault();
+      if (!infoOn) {
+        infoOn = true;
+        updateInfoVisibility();
+      }
+    }
+
+    if (inGame) {
+      if (e.code === 'KeyU') { // U (англ.) / Г (рус.) — вкл/выкл глаз (только во время игры)
+        e.preventDefault();
+        eyeOn = !eyeOn;
+        updateEyeVisibility();
+      }
+      if (e.code === 'KeyK') { // K (англ.) / Л (рус.) — уменьшить прозрачность глаза (мин 10%)
+        e.preventDefault();
+        eyeOpacity = Math.max(0.1, +(eyeOpacity - 0.1).toFixed(2));
+        saveNum('schulte-eye-opacity', eyeOpacity);
+        applyEyeStyle();
+      }
+      if (e.code === 'KeyL') { // L (англ.) / Д (рус.) — увеличить прозрачность глаза (макс 100%)
+        e.preventDefault();
+        eyeOpacity = Math.min(1, +(eyeOpacity + 0.1).toFixed(2));
+        saveNum('schulte-eye-opacity', eyeOpacity);
+        applyEyeStyle();
+      }
+      if (e.code === 'KeyP') { // P (англ.) / З (рус.) — увеличить размер глаза
+        e.preventDefault();
+        eyeSize += 10;
+        saveNum('schulte-eye-size', eyeSize);
+        applyEyeStyle();
+      }
+      if (e.code === 'KeyO') { // O (англ.) / Щ (рус.) — уменьшить размер глаза
+        e.preventDefault();
+        eyeSize = Math.max(20, eyeSize - 10);
+        saveNum('schulte-eye-size', eyeSize);
+        applyEyeStyle();
+      }
+    }
+
+    if (!inGame) return;
 
     if (e.code === 'Space') {
       e.preventDefault();
@@ -455,7 +1072,7 @@
     }
     if (e.code === 'Escape') {
       e.preventDefault();
-      goToMenu();
+      showMenu();
       return;
     }
     if (e.key === '+' || e.key === '=' || e.code === 'NumpadAdd') {
@@ -472,31 +1089,53 @@
       resizeGrid();
       return;
     }
-    if (e.code === 'KeyL') { // L (англ.) и Д (рус.) — одна физическая клавиша
-      e.preventDefault();
-      scale = 1;
-      saveScale(currentSize, scale);
-      resizeGrid();
-      return;
-    }
   });
 
   document.addEventListener('keyup', (e) => {
-    if (e.code === 'KeyR') {
-      menuGrid.classList.remove('show-records');
+    if (e.code === 'KeyR') { // отпустили R/К — прячем рекорды под плитками
+      recordsOn = false;
+      updateRecordsVisibility();
+    }
+    if (e.code === 'KeyI') { // отпустили I/Ш — прячем окно информации
+      infoOn = false;
+      updateInfoVisibility();
     }
   });
 
+  // ---------- средняя кнопка мыши: подсказка нужной цифры ----------
+  document.addEventListener('mousedown', (e) => {
+    if (e.button === 1) {
+      e.preventDefault();
+      if (inGame && !finished) {
+        peekOverlay.textContent = currentLevel.label(currentTarget, total);
+        peekOverlay.style.fontSize = currentFontSize + 'px';
+        peekOverlay.classList.add('show');
+      }
+    }
+  });
+
+  document.addEventListener('mouseup', (e) => {
+    if (e.button === 1) {
+      peekOverlay.classList.remove('show');
+    }
+  });
+
+  document.addEventListener('auxclick', (e) => {
+    if (e.button === 1) e.preventDefault();
+  });
+
+  // ---------- колесо мыши: навигация ----------
   document.addEventListener('wheel', (e) => {
-    if (!inGame) return;
-    if (e.deltaY > 0) {
-      buildGrid(currentSize);
-    } else if (e.deltaY < 0) {
-      goToMenu();
+    if (inGame) {
+      if (e.deltaY > 0) {
+        buildGrid(currentSize);
+      } else if (e.deltaY < 0) {
+        showMenu();
+      }
     }
   }, { passive: true });
 
-  refreshBestLabels();
+  showMenu();
 </script>
 
 </body>
