@@ -249,6 +249,44 @@
 - Уровень 12 «∞» — то же, что уровень 11 (clickAnywhere +
   colorFeedback + hideErrorsLabel), плюс instantRestart.
 
+МОБИЛЬНАЯ ВЕРСИЯ (телефон/планшет)
+- Определение устройства — функция isMobileDevice() в начале обработчиков
+  событий (ищи "мобильная версия: определение устройства" в <script>):
+  считается телефоном/планшетом, если navigator.userAgent похож на
+  мобильный ИЛИ указатель "грубый" (window.matchMedia('(pointer: coarse)') —
+  это отличает палец от мыши). Обычное сужение окна браузера на компьютере
+  НЕ считается мобильным — размер окна тут не проверяется вообще.
+  Если результат — true, на <body> вешается класс "is-mobile" один раз
+  при загрузке страницы; вся мобильная CSS и свайпы завязаны именно на
+  этот класс, а не на @media (max-width: ...).
+- СВАЙПЫ (только когда есть класс is-mobile И только во время игры, т.е.
+  inGame === true; на экранах меню свайпы ничего не делают):
+  · свайп ВНИЗ — обновить (рестарт) текущую таблицу, как Space/прокрутка
+    колеса вниз на компьютере;
+  · свайп ВВЕРХ — выйти в меню размеров, как Esc/прокрутка колеса вверх
+    на компьютере.
+  Обработчики touchstart/touchend висят на document, ищи
+  SWIPE_MIN_DISTANCE (минимальная длина свайпа по вертикали, сейчас 60px)
+  и SWIPE_MAX_OFF_AXIS (максимальное отклонение по горизонтали, чтобы
+  наклонный жест не считался свайпом, тоже 60px) — оба значения можно
+  подправить прямо там же.
+- РАЗМЕРЫ НА ГЛАВНОМ ЭКРАНЕ (CSS-правила body.is-mobile ..., в конце
+  <style>, ищи "МОБИЛЬНАЯ ВЕРСИЯ"): кнопки уровней (.level-tile) уменьшены
+  примерно вдвое (60px → 30px), а сам столбик уровней (.level-grid) на
+  телефоне перестаёт быть абсолютной колонкой слева и становится
+  горизонтальной полосой (6 кнопок в ряд, 2 ряда) НАД плитками размеров —
+  #menu-screen переключается в flex-direction: column, чтобы обе группы
+  (уровни и размеры 2x2..10x10) помещались на экране одновременно без
+  наложения друг на друга. Плитки размеров (.menu-tile) на телефоне тоже
+  уменьшены (font-size 48px → 26px, gap между плитками 100px → 16px,
+  ширина блока ограничена 340px), чтобы всё влезало на узкий экран.
+  На компьютере (без класса is-mobile) ничего из этого не меняется —
+  раскладка и размеры остаются прежними.
+- ЧТО ОСТАЁТСЯ ТОЛЬКО ДЛЯ КОМПЬЮТЕРА (пока НЕ адаптировано под телефон,
+  сделано намеренно): таймер обратного отсчёта (клавиша N/Т) и окно
+  информации (клавиша B/И) — у обоих нет мобильных версий/кнопок на
+  экране, вызвать их можно только клавиатурой.
+
 ХРАНЕНИЕ ДАННЫХ
 - Все настройки (масштаб, рекорды, размер/прозрачность глаза, выбранный
   уровень, вкл/выкл глаза) хранятся в localStorage браузера — то есть
@@ -497,6 +535,63 @@
 
   .tile-record.show {
     visibility: visible;
+  }
+
+  /* ---------- МОБИЛЬНАЯ ВЕРСИЯ ----------
+     Класс "is-mobile" вешается на <body> из JS (см. isMobileDevice() в <script>) —
+     ТОЛЬКО на реальных телефонах/планшетах (по navigator.userAgent и грубому
+     указателю pointer:coarse), а не при простом сужении окна на компьютере.
+     Свайпы вниз/вверх во время игры (обновить таблицу / выйти в меню) тоже
+     работают только при наличии этого класса — см. touchstart/touchend в
+     <script>. На компьютере ничего из этого блока не применяется и не мешает.
+
+     Задача блока: 1) уменьшить кнопки уровней (.level-tile) примерно в 2 раза
+     и 2) уместить их вместе с плитками размеров (.menu-grid) на экране телефона
+     без пересечения — для этого столбик уровней превращается в горизонтальную
+     полосу НАД плитками размеров (вместо абсолютной колонки слева, как на
+     компьютере). */
+  body.is-mobile #menu-screen {
+    flex-direction: column;
+    justify-content: center;
+    gap: 4vh;
+    padding: 4vh 12px;
+  }
+
+  body.is-mobile .level-grid {
+    position: static;                 /* <-- вместо absolute-колонки слева */
+    top: auto;
+    left: auto;
+    transform: none;
+    grid-template-columns: repeat(6, max-content); /* <-- 6 кнопок в ряд, 2 ряда (1..12) */
+    gap: 8px;                          /* <-- было --level-btn-gap: 16px, тут вдвое меньше */
+    justify-content: center;
+  }
+
+  body.is-mobile .level-tile {
+    min-width: 30px;                   /* <-- было --level-btn-size: 60px, тут вдвое меньше */
+    height: 30px;
+    padding: 0 6px;
+    font-size: 13px;                   /* <-- уменьшено, чтобы уместиться в кнопку 30px */
+    border-radius: 8px;
+  }
+
+  body.is-mobile .level-tile.level-infinity {
+    font-size: 16px;
+  }
+
+  body.is-mobile .menu-grid {
+    gap: 16px;                         /* <-- было 100px на компьютере */
+    width: 100%;
+    max-width: 340px;
+  }
+
+  body.is-mobile .menu-tile {
+    font-size: 26px;                   /* <-- было 48px на компьютере, текст ещё влезает */
+  }
+
+  body.is-mobile .tile-record {
+    font-size: 16px;
+    margin-top: 6px;
   }
 
   /* ---------- GAME ---------- */
@@ -1583,6 +1678,54 @@
       } else if (e.deltaY < 0) {
         showMenu();
       }
+    }
+  }, { passive: true });
+
+  // ---------- мобильная версия: определение устройства + свайпы ----------
+  // isMobileDevice — true ТОЛЬКО на реальном телефоне/планшете (по строке
+  // navigator.userAgent или по "грубому" указателю pointer:coarse — это и
+  // отличает палец от мыши). Обычное сужение окна браузера на компьютере
+  // сюда не попадает, поэтому свайпы и уменьшенные плитки уровней на
+  // компьютере не появляются никогда, независимо от размера окна.
+  function isMobileDevice() {
+    const uaMobile = /Android|iPhone|iPad|iPod|IEMobile|BlackBerry|Opera Mini|Mobile/i.test(navigator.userAgent);
+    const coarsePointer = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
+    return uaMobile || coarsePointer;
+  }
+
+  if (isMobileDevice()) {
+    document.body.classList.add('is-mobile');
+  }
+
+  // Свайп вниз во время игры — обновить таблицу (то же самое, что Space/
+  // прокрутка колеса вниз на компьютере). Свайп вверх — выйти в меню (то же,
+  // что Esc/прокрутка колеса вверх). Работает только когда есть класс
+  // is-mobile И только пока идёт игра (inGame) — на экранах меню свайпы
+  // ничего не делают, чтобы не мешать обычному скроллу/тапам по плиткам.
+  const SWIPE_MIN_DISTANCE = 60; // px — минимальная длина свайпа по вертикали
+  const SWIPE_MAX_OFF_AXIS = 60; // px — максимальное отклонение по горизонтали,
+                                  // чтобы не путать свайп с диагональным жестом
+  let touchStartX = 0;
+  let touchStartY = 0;
+
+  document.addEventListener('touchstart', (e) => {
+    if (!document.body.classList.contains('is-mobile') || !inGame) return;
+    if (e.touches.length !== 1) return;
+    touchStartX = e.touches[0].clientX;
+    touchStartY = e.touches[0].clientY;
+  }, { passive: true });
+
+  document.addEventListener('touchend', (e) => {
+    if (!document.body.classList.contains('is-mobile') || !inGame) return;
+    const touch = e.changedTouches[0];
+    if (!touch) return;
+    const dx = touch.clientX - touchStartX;
+    const dy = touch.clientY - touchStartY;
+    if (Math.abs(dx) > SWIPE_MAX_OFF_AXIS) return; // слишком наискось — не свайп
+    if (dy > SWIPE_MIN_DISTANCE) {
+      buildGrid(currentSize); // свайп вниз — обновить (рестарт) таблицу
+    } else if (dy < -SWIPE_MIN_DISTANCE) {
+      showMenu(); // свайп вверх — выйти в меню
     }
   }, { passive: true });
 
