@@ -1,2 +1,1 @@
-### Таблицы Шульте онлайн
-https://agafonovtimur.github.io/shulte/
+### Таблицы Шульте онлайн  https://agafonovtimur.github.io/shulte/
