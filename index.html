@@ -65,7 +65,7 @@
        вправо), --memory-timer-offset-y — сдвиг по вертикали от центра
        (отрицательное — вверх, положительное — вниз). */
     --memory-timer-offset-x:700px;     /* <-- сдвиг от центра экрана по горизонтали, px */
-    --memory-timer-offset-y: 260px;     /* <-- сдвиг от центра экрана по вертикали, px */
+    --memory-timer-offset-y: 280px;     /* <-- сдвиг от центра экрана по вертикали, px */
     --memory-timer-width: 260px;        /* <-- ширина плашки */
     --memory-timer-height: 110px;       /* <-- высота плашки */
     --memory-timer-label-font-size: 22px; /* <-- размер шрифта первой строки ("время на запоминание") */
@@ -135,7 +135,7 @@
     position: absolute;         /* <-- вынесен из потока, чтобы не сдвигать центр .menu-grid */
     left: 50%;                  /* <-- база: центр экрана, не трогать */
     top: 50%;
-    --level-panel-offset-x: -750px; /* <-- расстояние от ЦЕНТРА экрана в px (отрицательное = влево). Крути это число вручную под своё разрешение. */
+    --level-panel-offset-x: -770px; /* <-- расстояние от ЦЕНТРА экрана в px (отрицательное = влево). Крути это число вручную под своё разрешение. */
     transform: translate(calc(-50% + var(--level-panel-offset-x)), -50%);
     display: flex;
     flex-direction: column;
@@ -148,6 +148,65 @@
     grid-template-columns: max-content max-content; /* <-- 2 кнопки в ряд (1-2, 3-4 ... 11-12), ширина колонки — по содержимому */
     justify-items: center;      /* <-- кнопки строго по центру своей колонки */
     gap: var(--level-btn-gap);
+  }
+
+  /* ---------- ОБЁРТКА "кнопка уровня + иконка инфо" ---------- */
+  .level-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  /* Круглая иконка "i" рядом с кнопкой уровня — при наведении показывает
+     всплывающую подсказку с описанием уровня. Цвета берутся из тех же
+     переменных темы, что и остальные элементы (--tile / --tile-text),
+     поэтому иконка автоматически подстраивается под все 3 темы. */
+  .level-info-icon {
+    position: relative;
+    flex: 0 0 auto;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: var(--tile);
+    color: var(--tile-text);
+    font-family: 'PT Sans', sans-serif;
+    font-weight: 700;
+    font-style: italic;
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: help;
+    box-shadow: 0 2px 0 var(--shadow-color);
+    user-select: none;
+  }
+
+  .level-info-icon .level-info-tooltip {
+    display: none;
+    position: absolute;
+    left: 100%;
+    top: 50%;
+    transform: translateY(-50%);
+    margin-left: 10px;
+    width: 220px;
+    background: var(--tile);
+    color: var(--tile-text);
+    font-family: 'PT Sans', sans-serif;
+    font-weight: 400;
+    font-style: normal;
+    font-size: 14px;
+    line-height: 1.35;
+    padding: 10px 12px;
+    border-radius: 8px;
+    box-shadow: 0 4px 0 var(--shadow-color);
+    z-index: 20;
+    text-align: left;
+    white-space: normal;
+  }
+
+  .level-info-icon:hover .level-info-tooltip,
+  .level-info-icon:focus .level-info-tooltip {
+    display: block;
   }
 
   /* ---------- КНОПКИ ТЕМЫ (серая / чёрная / белая) ----------
@@ -359,6 +418,30 @@
 
   body.is-mobile .level-tile.level-infinity {
     font-size: 16px;
+  }
+
+  body.is-mobile .level-item {
+    gap: 3px;
+  }
+
+  body.is-mobile .level-info-icon {
+    width: 15px;
+    height: 15px;
+    font-size: 10px;
+  }
+
+  /* На мобильном сбоку места нет — подсказка раскрывается вверх и по центру */
+  body.is-mobile .level-info-icon .level-info-tooltip {
+    left: 50%;
+    top: auto;
+    bottom: 100%;
+    right: auto;
+    transform: translateX(-50%);
+    margin-left: 0;
+    margin-bottom: 8px;
+    width: 160px;
+    font-size: 12px;
+    padding: 8px 10px;
   }
 
   body.is-mobile .menu-grid {
@@ -860,7 +943,8 @@
       hideErrorsLabel: false,
       memoryLevel: false,
       revealDigit: false,
-      memoryInstantRestart: false
+      memoryInstantRestart: false,
+      description: ''
     });
   }
 
@@ -894,7 +978,8 @@
       hideErrorsLabel: false,
       memoryLevel: true,
       revealDigit: true,
-      memoryInstantRestart: false
+      memoryInstantRestart: false,
+      description: ''
     });
   }
   LEVELS[12].name = 'Исчезающие цифры';   // уровень 13
@@ -947,6 +1032,16 @@
   LEVELS[9].name = '∞';                // уровень 10 (бесконечный №9)
   LEVELS[11].name = '∞';               // уровень 12 (бесконечный №11)
 
+  // ---- ОПИСАНИЯ УРОВНЕЙ (текст всплывающей подсказки у иконки "i") ----
+  LEVELS[0].description = 'Обычная таблица Шульте: находите числа по порядку от 1 до конца. После плашки с результатом — переход в меню.';
+  LEVELS[2].description = 'Верный клик подсвечивается зелёным, неверный — красным. После плашки с результатом — переход в меню.';
+  LEVELS[4].description = 'Числа трёхзначные (001, 002 ...) вместо обычных. После плашки с результатом — переход в меню.';
+  LEVELS[6].description = 'После верного клика клетка превращается в букву вместо того, чтобы просто пропасть.';
+  LEVELS[8].description = 'Клик засчитывается в любом месте экрана, а не только по нужной клетке. Плашка "ОШИБОК: N" скрыта.';
+  LEVELS[10].description = 'Клик в любом месте экрана + зелёная/красная подсветка. Плашка "ОШИБОК: N" скрыта.';
+  LEVELS[12].description = 'Сначала все цифры показаны на своих местах — запомните расположение. Через заданное время они прячутся, и нужно найти их по порядку; при верном клике открывается настоящая цифра клетки.';
+  LEVELS[14].description = 'Запоминание расположения цифр, но при клике цифра не открывается — только зелёная/красная вспышка.';
+
   const levelGrid = document.getElementById('level-grid');
   const menuGrid = document.getElementById('menu-grid');
   const menuScreen = document.getElementById('menu-screen');
@@ -989,6 +1084,9 @@
   // ---------- уровни ----------
   const levelButtonEls = {};
   LEVELS.forEach(level => {
+    const item = document.createElement('div');
+    item.className = 'level-item';
+
     const btn = document.createElement('button');
     btn.className = 'level-tile';
     if (level.name === '∞') btn.classList.add('level-infinity');
@@ -1000,7 +1098,25 @@
       updateActiveLevelButton();
       showMenu();
     });
-    levelGrid.appendChild(btn);
+
+    item.appendChild(btn);
+
+    // У "бесконечных" уровней (∞) иконка инфо не нужна — у них нет
+    // собственного описания, это просто версия соседнего уровня без
+    // финальной плашки с результатом.
+    if (level.name !== '∞') {
+      const infoIcon = document.createElement('span');
+      infoIcon.className = 'level-info-icon';
+      infoIcon.textContent = 'i';
+      infoIcon.tabIndex = 0; // доступно по Tab/фокусу, не только по наведению мышью
+      const tooltip = document.createElement('span');
+      tooltip.className = 'level-info-tooltip';
+      tooltip.textContent = level.description || '';
+      infoIcon.appendChild(tooltip);
+      item.appendChild(infoIcon);
+    }
+
+    levelGrid.appendChild(item);
     levelButtonEls[level.id] = btn;
   });
 
@@ -1024,7 +1140,7 @@
       vars: {
         '--bg': '#1a1a1a',
         '--tile': '#5a5a5a',
-        '--tile-text': '#8e8e8e',
+        '--tile-text': '#8e8e8e', /* '#8e8e8e' */
         '--shadow-color': '#303030',
       },
     },
@@ -1033,7 +1149,7 @@
       vars: {
         '--bg': '#141414',
         '--tile': '#262626',
-        '--tile-text': '#c9c9c9',
+        '--tile-text': '#8e8e8e', /* '#c9c9c9' */
         '--shadow-color': '#0a0a0a',
       },
     },
@@ -1467,13 +1583,14 @@
   }
 
   function formatTime(ms) {
-    const totalCs = Math.floor(ms / 10);
-    const cs = totalCs % 100;
-    const totalSec = Math.floor(totalCs / 100);
+    const totalMs = Math.floor(ms);
+    const msPart = totalMs % 1000;
+    const totalSec = Math.floor(totalMs / 1000);
     const sec = totalSec % 60;
     const min = Math.floor(totalSec / 60);
-    const pad = v => String(v).padStart(2, '0');
-    return `${pad(min)}:${pad(sec)}:${pad(cs)}`;
+    const pad2 = v => String(v).padStart(2, '0');
+    const pad3 = v => String(v).padStart(3, '0');
+    return `${pad2(min)}:${pad2(sec)}:${pad3(msPart)}`;
   }
 
   function finishGame() {
@@ -1512,7 +1629,7 @@
   function refreshTileRecords() {
     sizes.forEach(n => {
       const ms = loadBest(n);
-      tileRecordEls[n].textContent = ms !== null ? formatTime(ms) : '00:00:00';
+      tileRecordEls[n].textContent = ms !== null ? formatTime(ms) : '00:00:000';
     });
   }
 
