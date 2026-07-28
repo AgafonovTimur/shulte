@@ -1033,14 +1033,14 @@
   LEVELS[11].name = '∞';               // уровень 12 (бесконечный №11)
 
   // ---- ОПИСАНИЯ УРОВНЕЙ (текст всплывающей подсказки у иконки "i") ----
-  LEVELS[0].description = 'Обычная таблица Шульте: находите числа по порядку от 1 до конца. После плашки с результатом — переход в меню.';
-  LEVELS[2].description = 'Верный клик подсвечивается зелёным, неверный — красным. После плашки с результатом — переход в меню.';
-  LEVELS[4].description = 'Числа трёхзначные (001, 002 ...) вместо обычных. После плашки с результатом — переход в меню.';
-  LEVELS[6].description = 'После верного клика клетка превращается в букву вместо того, чтобы просто пропасть.';
-  LEVELS[8].description = 'Клик засчитывается в любом месте экрана, а не только по нужной клетке. Плашка "ОШИБОК: N" скрыта.';
-  LEVELS[10].description = 'Клик в любом месте экрана + зелёная/красная подсветка. Плашка "ОШИБОК: N" скрыта.';
-  LEVELS[12].description = 'Сначала все цифры показаны на своих местах — запомните расположение. Через заданное время они прячутся, и нужно найти их по порядку; при верном клике открывается настоящая цифра клетки.';
-  LEVELS[14].description = 'Запоминание расположения цифр, но при клике цифра не открывается — только зелёная/красная вспышка.';
+  LEVELS[0].description = 'Обычная таблица Шульте.';
+  LEVELS[2].description = 'Верный клик подсвечивается зелёным, неверный — красным.';
+  LEVELS[4].description = 'Все числа трёхзначные (001, 002 ...) вместо двузначных.';
+  LEVELS[6].description = 'После верного клика клетка превращается в случайную букву. Увеличивает сложность по сравнению с обычными таблицами';
+  LEVELS[8].description = 'Клик засчитывается в любом месте экрана, а не только по нужной клетке. Уровень нужен чтобы не кликать мышкой по цифрам, а быстро переходить к следующей цифре когда нашел нужную на данный момент';
+  LEVELS[10].description = 'Клик засчитывается в любом месте экрана. Но цифры не исчезают, увеличивая сложность.';
+  LEVELS[12].description = 'Сначала все цифры показаны на своих местах — запомните их расположение. Через заданное время они исчезают, и нужно найти их по порядку. При верном клике цифра остается видимой.';
+  LEVELS[14].description = 'Сначала все цифры показаны на своих местах — запомните их расположение. Через заданное время они исчезают, и нужно найти их по порядку. При верном клике - квадрат подсвечивается зеленым, при не верном - красным. Цифры не отображаются до конца уровня. Увеличивает сложность по сравнению с предыдущим уровнем';
 
   const levelGrid = document.getElementById('level-grid');
   const menuGrid = document.getElementById('menu-grid');
@@ -1928,6 +1928,68 @@
     startTime = performance.now();
   }
 
+  // ---------- горячие клавиши для таблиц 2x2 .. 5x5 ----------
+  // Физические клавиши (e.code — не зависит от раскладки, работает и в английской,
+  // и в русской): ряды клавиш, соответствующих рядам ЙЦУКЕН на русской
+  // раскладке (= QWERTY на английской). Каждая клавиша жмёт клетку в таблице
+  // на той же позиции (ряд/столбец), что и сама клавиша в своём ряду.
+  // Ряд 1: Й Ц У К Е -> Q W E R T
+  // Ряд 2: Ф Ы В А П -> A S D F G
+  // Ряд 3: Я Ч С М И -> Z X C V B
+  // Ряд 4: Н Г Ш Щ З -> Y U I O P
+  // Ряд 5: Р О Л Д Ж -> H J K L ;
+  // Для размеров 2x2/3x3/4x4 берутся первые N кодов из первых N рядов
+  // (2x2: йц/фы; 3x3: йцу/фыв/ячс; 4x4: йцук/фыва/ячсм/нгшщ) — так же,
+  // как уже было устроено для 5x5.
+  const HOTKEY_ROWS = [
+    ['KeyQ', 'KeyW', 'KeyE', 'KeyR', 'KeyT'],
+    ['KeyA', 'KeyS', 'KeyD', 'KeyF', 'KeyG'],
+    ['KeyZ', 'KeyX', 'KeyC', 'KeyV', 'KeyB'],
+    ['KeyY', 'KeyU', 'KeyI', 'KeyO', 'KeyP'],
+    ['KeyH', 'KeyJ', 'KeyK', 'KeyL', 'Semicolon']
+  ];
+
+  function buildGridHotkeys(n) {
+    const map = {};
+    for (let row = 0; row < n; row++) {
+      for (let col = 0; col < n; col++) {
+        map[HOTKEY_ROWS[row][col]] = [row, col];
+      }
+    }
+    return map;
+  }
+
+  const GRID_HOTKEYS_BY_SIZE = {
+    2: buildGridHotkeys(2),
+    3: buildGridHotkeys(3),
+    4: buildGridHotkeys(4),
+    5: buildGridHotkeys(5)
+  };
+
+  function isGridHotkeyActive() {
+    return inGame && !!GRID_HOTKEYS_BY_SIZE[currentSize];
+  }
+
+  document.addEventListener('keydown', (e) => {
+    // Alt всегда пропускается дальше (не трогаем клетки) — под Alt теперь
+    // живут функции глаза/инфо (см. ниже), которые могут пересекаться
+    // с этими же физическими клавишами.
+    if (e.altKey) return;
+    if (isGridHotkeyActive()) {
+      const map = GRID_HOTKEYS_BY_SIZE[currentSize];
+      if (map[e.code]) {
+        e.preventDefault();
+        const [row, col] = map[e.code];
+        const idx = row * currentSize + col;
+        const cell = grid.children[idx];
+        if (cell && cell.classList.contains('cell') && !cell.classList.contains('static-empty')) {
+          cell.click();
+        }
+        return;
+      }
+    }
+  });
+
   // ---------- клавиатура ----------
   document.addEventListener('keydown', (e) => {
     // Shift+2..Shift+9, Shift+0 — сброс рекорда ОДНОЙ таблицы (2х2..9х9, 10х10)
@@ -1938,7 +2000,7 @@
       return;
     }
 
-    if (e.code === 'KeyR') { // R (англ.) / К (рус.) — показать рекорды под плитками, пока зажата
+    if (e.code === 'KeyR' && !inGame) { // R (англ.) / К (рус.) — показать рекорды под плитками, пока зажата. Работает ТОЛЬКО в меню; на уровне эта же клавиша жмёт клетку (см. блок горячих клавиш таблицы выше).
       e.preventDefault();
       if (!recordsOn) {
         recordsOn = true;
@@ -1946,12 +2008,10 @@
       }
     }
 
-    if (e.code === 'KeyB') { // B (англ.) / И (рус.) — окно информации на весь экран, пока зажата
+    if (e.code === 'KeyB' && e.altKey) { // Alt+B (англ.) / Alt+И (рус.) — окно информации, теперь переключатель: нажал — показалось, нажал ещё раз — спряталось
       e.preventDefault();
-      if (!infoOn) {
-        infoOn = true;
-        updateInfoVisibility();
-      }
+      infoOn = !infoOn;
+      updateInfoVisibility();
     }
 
     if (e.code === 'KeyN') { // N (англ.) / Т (рус.) — окно ввода таймера обратного отсчёта
@@ -1960,31 +2020,31 @@
     }
 
     if (inGame) {
-      if (e.code === 'KeyU') { // U (англ.) / Г (рус.) — вкл/выкл глаз (только во время игры)
+      if (e.code === 'KeyU' && e.altKey) { // Alt+U (англ.) / Alt+Г (рус.) — вкл/выкл глаз (только во время игры)
         e.preventDefault();
         eyeOn = !eyeOn;
         saveEyeOn(eyeOn);
         updateEyeVisibility();
       }
-      if (e.code === 'KeyK') { // K (англ.) / Л (рус.) — уменьшить прозрачность глаза (мин 10%)
+      if (e.code === 'KeyK' && e.altKey) { // Alt+K (англ.) / Alt+Л (рус.) — уменьшить прозрачность глаза (мин 10%)
         e.preventDefault();
         eyeOpacity = Math.max(0.1, +(eyeOpacity - 0.1).toFixed(2));
         saveNum('schulte-eye-opacity', eyeOpacity);
         applyEyeStyle();
       }
-      if (e.code === 'KeyL') { // L (англ.) / Д (рус.) — увеличить прозрачность глаза (макс 100%)
+      if (e.code === 'KeyL' && e.altKey) { // Alt+L (англ.) / Alt+Д (рус.) — увеличить прозрачность глаза (макс 100%)
         e.preventDefault();
         eyeOpacity = Math.min(1, +(eyeOpacity + 0.1).toFixed(2));
         saveNum('schulte-eye-opacity', eyeOpacity);
         applyEyeStyle();
       }
-      if (e.code === 'KeyP') { // P (англ.) / З (рус.) — увеличить размер глаза
+      if (e.code === 'KeyP' && e.altKey) { // Alt+P (англ.) / Alt+З (рус.) — увеличить размер глаза
         e.preventDefault();
         eyeSize += 10;
         saveNum('schulte-eye-size', eyeSize);
         applyEyeStyle();
       }
-      if (e.code === 'KeyO') { // O (англ.) / Щ (рус.) — уменьшить размер глаза
+      if (e.code === 'KeyO' && e.altKey) { // Alt+O (англ.) / Alt+Щ (рус.) — уменьшить размер глаза
         e.preventDefault();
         eyeSize = Math.max(20, eyeSize - 10);
         saveNum('schulte-eye-size', eyeSize);
@@ -2025,14 +2085,13 @@
   });
 
   document.addEventListener('keyup', (e) => {
-    if (e.code === 'KeyR') { // отпустили R/К — прячем рекорды под плитками
+    if (e.code === 'KeyR') { // отпустили R/К — прячем рекорды под плитками (работает только в меню, см. keydown)
       recordsOn = false;
       updateRecordsVisibility();
     }
-    if (e.code === 'KeyB') { // отпустили B/И — прячем окно информации
-      infoOn = false;
-      updateInfoVisibility();
-    }
+    // KeyB больше не обрабатывается тут: окно информации теперь переключается
+    // по Alt+B/Alt+И на keydown (нажал — показал, нажал ещё раз — спрятал),
+    // а не показывается по удержанию клавиши.
   });
 
   // ---------- средняя кнопка мыши: подсказка нужной цифры ----------
