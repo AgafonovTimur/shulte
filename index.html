@@ -55,6 +55,18 @@
     --countdown-expired-font-size: 44px; /* <-- размер шрифта у текста "ВРЕМЯ ВЫШЛО" (текст длиннее) */
     --countdown-expired-color: #ff3b3b; /* <-- цвет текста "ВРЕМЯ ВЫШЛО" (красный, как раньше было на уровне 3), теперь на ВСЕХ уровнях */
 
+    /* ---- плашка "время последней попытки" (Alt+R / Alt+К, только во время игры) ----
+       Показывает время ПОСЛЕДНЕГО завершённого прохождения текущей таблицы —
+       удобно для ∞-уровней, чтобы посмотреть, за сколько прошли предыдущий круг.
+       Никак не сравнивается ни с каким рекордом, просто показывает число.
+       Положение — тоже вручную, в пикселях, ОТ ЦЕНТРА экрана (как у --countdown-offset-x/y выше). */
+    --lastrun-offset-x: 770px;   /* <-- сдвиг от центра экрана по горизонтали, px */
+    --lastrun-offset-y: 0px;  /* <-- сдвиг от центра экрана по вертикали, px */
+    --lastrun-width: 340px;      /* <-- ширина плашки */
+    --lastrun-height: 120px;     /* <-- высота плашки */
+    --lastrun-font-size: 56px;   /* <-- размер шрифта времени */
+    --lastrun-color: var(--tile-text); /* <-- цвет текста плашки */
+
     /* ---- таймер для запоминания (уровни 13-16) ----
        Это ДВА таймера с ОБЩИМ расположением (одни и те же переменные):
        1) плашка-настройка в меню (клик — ввод нового значения);
@@ -65,9 +77,9 @@
        вправо), --memory-timer-offset-y — сдвиг по вертикали от центра
        (отрицательное — вверх, положительное — вниз). */
     --memory-timer-offset-x:700px;     /* <-- сдвиг от центра экрана по горизонтали, px */
-    --memory-timer-offset-y: 280px;     /* <-- сдвиг от центра экрана по вертикали, px */
+    --memory-timer-offset-y: 265px;     /* <-- сдвиг от центра экрана по вертикали, px */
     --memory-timer-width: 260px;        /* <-- ширина плашки */
-    --memory-timer-height: 110px;       /* <-- высота плашки */
+    --memory-timer-height: 150px;       /* <-- высота плашки */
     --memory-timer-label-font-size: 22px; /* <-- размер шрифта первой строки ("время на запоминание") */
     --memory-timer-value-font-size: 40px; /* <-- размер шрифта второй строки (00:10) / поля ввода */
     --memory-timer-bg-color: var(--tile);      /* <-- цвет фона плашки (отдельно от --tile, если нужно) */
@@ -642,12 +654,19 @@
     box-shadow: 0 6px 0 var(--shadow-color);
     padding: 32px;
     box-sizing: border-box;
-    overflow: auto;               /* <-- если содержимое не влезает — появится скролл */
+    overflow-y: auto;             /* <-- если содержимое не влезает — можно скроллить */
+    overflow-x: hidden;
+    scrollbar-width: none;        /* <-- прячет полосу прокрутки (Firefox) */
+    -ms-overflow-style: none;     /* <-- прячет полосу прокрутки (старый Edge/IE) */
     color: var(--tile-text);
     font-family: 'PT Sans', sans-serif;
     font-weight: 700;
     font-size: var(--info-font-size); /* <-- размер шрифта КОРОТКОГО текста (например "123") */
+    white-space: pre-line;        /* <-- сохраняет переносы строк из разметки, лишние пробелы схлопывает */
+    text-align: left;
   }
+
+  #info-box::-webkit-scrollbar { display: none; } /* <-- прячет полосу прокрутки (Chrome/Safari) */
 
   /* Стиль для списка символов шрифта (см. #info-box в <body>) — свой,
      более мелкий размер шрифта, чтобы 40 строк помещались в окно. */
@@ -705,6 +724,36 @@
 
   #countdown-input-overlay { z-index: 2100; } /* поверх плашки отсчёта, пока вводим новое время */
   #countdown-display { z-index: 2000; }
+
+  /* ---------- ПЛАШКА "ВРЕМЯ ПОСЛЕДНЕЙ ПОПЫТКИ" (Alt+R / Alt+К, только во время игры) ----------
+     Показывает время последнего завершённого прохождения текущей таблицы,
+     пока зажата комбинация Alt+R (Alt+К). Ни с чем не сравнивается и не
+     является рекордом уровня — просто последнее число. Позиция/размер —
+     см. --lastrun-* в :root выше. */
+  #lastrun-display {
+    left: 50%;
+    top: 50%;
+    transform: translate(calc(-50% + var(--lastrun-offset-x)), calc(-50% + var(--lastrun-offset-y)));
+    display: none;
+    position: fixed;
+    width: var(--lastrun-width);
+    height: var(--lastrun-height);
+    background: var(--tile);
+    color: var(--lastrun-color);
+    border-radius: 12px;
+    box-shadow: 0 4px 0 var(--shadow-color);
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    font-family: 'PT Sans', sans-serif;
+    font-weight: 700;
+    font-size: var(--lastrun-font-size);
+    z-index: 2000;
+  }
+
+  #lastrun-display.show {
+    display: flex;
+  }
 
   #countdown-input {
     width: 90%;
@@ -849,7 +898,50 @@
 
   <div id="info-overlay">
     <div id="info-box">
-      тут будет инфа если я доберусь до этого
+		Около каждого уровня стоит иконка с информацией. При наведении показывает описание уровней. Еще правее кнопка со знаком бесконечности - такой же уровень, но после окончания уровня сразу начинается такой же. 	Рекорды засчитываются.
+		Горячие клавиши :
+		+ / -  — увеличить/уменьшить масштаб таблицы.
+		-- Alt + U / Alt + Г — включить/выключить глаз (отображается только на уровне с квадратами).
+		-- Alt + K / Alt + Л — уменьшить прозрачность глаза (минимум 10%).
+		-- Alt + L / Alt + Д — увеличить прозрачность глаза (максимум 100%).
+		-- Alt + P / Alt + З — увеличить размер значка глаза
+		-- Alt + O / Alt + Щ — уменьшить размер значка глаза.
+		-- R / К (удерживать нажатой кнопку. работает только в меню) — показать рекорды для уровня 
+		-- Средняя кнопка мыши (удерживать) — показать подсказку с искомым числом.
+		-- Колесо мыши вверх — выйти в меню
+		-- Space / Колесо мыши вниз — начать заново текущую таблицу
+		-- N / Т — открыть окно ввода таймера обратного отсчёта (Enter — запустить после ввода).
+		-- Alt+R / Alt+К - Только во время игры на бесконечных уровнях - показывает время ПОСЛЕДНЕГО завершённого прохождения текущей таблицы.
+
+		Горячие клавиши клеток (с 2×2 по 5×5)
+		Используются физические клавиши клавиатуры (работают независимо от раскладки). Каждая клавиша соответствует положению клетки в таблице.
+		пример 5 на 5 таблица:
+		-- строка 1(1й сверху ряд квадратов) - Й Ц У К Е(Q W E R T) - каждая буква соответствует своему квадрату. "й" - 1й квадрат слева первого ряда, "ц"- 2й квадрат слева первого ряда, "у" - 3й квадрат слева первого ряда и тд
+		-- строка 2(2й сверху ряд квадратов) - Ф Ы В А П(A S D F G) - каждая буква соответствует своему квадрату. "ф" - 2й квадрат слева второго ряда, "ы"- 2й квадрат слева второго ряда, "в" - 3й квадрат слева второго ряда и тд
+
+		для остальных таблиц
+		2×2: Й Ц / Ф Ы
+		3×3: Й Ц У / Ф Ы В / Я Ч С
+		4×4: Й Ц У К / Ф Ы В А / Я Ч С М / Н Г Ш Щ
+
+		Удаление рекордов: 
+		- Shift+2 удаляет у 2x2 только на этом уровне
+		
+		- Shift+3 удаляет у 3x3 только на этом уровне
+		
+		Shift+4 удаляет у 4x4 только на этом уровне
+		
+		Shift+5 удаляет у 5x5 только на этом уровне
+		
+		Shift+6 удаляет у 6x6 только на этом уровне
+		
+		Shift+7 удаляет у 7x7 только на этом уровне
+		
+		Shift+8 удаляет у 8x8 только на этом уровне
+		
+		Shift+9 удаляет у 9x9 только на этом уровне
+		
+		Shift+0 удаляет у 10x10 только на этом уровне
     </div>
   </div>
 
@@ -858,15 +950,16 @@
   </div>
 
   <div id="countdown-display"></div>
+  <div id="lastrun-display"></div>
 
   <div id="memory-timer-widget">
-    <div id="memory-timer-label">время на запоминание</div>
+    <div id="memory-timer-label">нажмите, чтобы изменить время на запоминание</div>
     <div id="memory-timer-value">00:10</div>
     <input id="memory-timer-input" type="text" inputmode="numeric" autocomplete="off" />
   </div>
 
   <div id="memory-level-timer-widget">
-    <div id="memory-level-timer-label">время на запоминание</div>
+    <div id="memory-level-timer-label">оставшееся время на запоминание</div>
     <div id="memory-level-timer-value">00:10</div>
   </div>
 
@@ -1142,6 +1235,12 @@
         '--tile': '#5a5a5a',
         '--tile-text': '#8e8e8e', /* '#8e8e8e' */
         '--shadow-color': '#303030',
+        // <-- цвет/яркость плашки ВЕРНОГО ответа для этой темы
+        '--flash-correct-color': '#b3ffb3',
+        '--flash-correct-opacity': '50%',
+        // <-- цвет/яркость плашки НЕВЕРНОГО ответа для этой темы
+        '--flash-wrong-color': '#ffcccc',
+        '--flash-wrong-opacity': '50%',
       },
     },
     black: {
@@ -1151,6 +1250,16 @@
         '--tile': '#262626',
         '--tile-text': '#8e8e8e', /* '#c9c9c9' */
         '--shadow-color': '#0a0a0a',
+        // <-- ЗЕЛЁНЫЙ (верный ответ) ТОЛЬКО для чёрной темы. Поменяй этот HEX,
+        // чтобы изменить цвет зелёного именно в чёрной теме.
+        '--flash-correct-color': '#b3ffb3',
+        // <-- ПРОЗРАЧНОСТЬ зелёного ТОЛЬКО для чёрной темы (0%-100%).
+        '--flash-correct-opacity': '37%',
+        // <-- КРАСНЫЙ (неверный ответ) ТОЛЬКО для чёрной темы. Поменяй этот HEX,
+        // чтобы изменить цвет красного именно в чёрной теме.
+        '--flash-wrong-color': '#ffcccc',
+        // <-- ПРОЗРАЧНОСТЬ красного ТОЛЬКО для чёрной темы (0%-100%).
+        '--flash-wrong-opacity': '37%',
       },
     },
     white: {
@@ -1160,6 +1269,12 @@
         '--tile': '#ffffff',
         '--tile-text': '#1a1a1a',
         '--shadow-color': '#d8d8d8',
+        // <-- цвет/яркость плашки ВЕРНОГО ответа для этой темы
+        '--flash-correct-color': '#b3ffb3',
+        '--flash-correct-opacity': '50%',
+        // <-- цвет/яркость плашки НЕВЕРНОГО ответа для этой темы
+        '--flash-wrong-color': '#ffcccc',
+        '--flash-wrong-opacity': '50%',
       },
     },
   };
@@ -1254,20 +1369,31 @@
   function scaleKey(n) { return 'schulte-scale-' + currentLevelId + '-' + n; }
   function bestKey(n) { return 'schulte-best-' + currentLevelId + '-' + n; }
 
+  // Хранится АБСОЛЮТНЫЙ размер таблицы в px (а не относительный множитель
+  // scale), чтобы визуальный размер плиток не зависел от того, каким было
+  // window.innerWidth/innerHeight в момент нажатия +/- (например, до/после
+  // входа в полноэкранный режим F11). При входе на уровень абсолютный
+  // размер пересчитывается обратно в scale относительно ТЕКУЩЕГО baseSize.
   function loadScale(n) {
     try {
       const v = localStorage.getItem(scaleKey(n));
-      return v ? parseFloat(v) : 1;
+      if (!v) return 1;
+      const savedAbs = parseFloat(v);
+      if (!savedAbs || !baseSize) return 1;
+      return +(savedAbs / baseSize).toFixed(4);
     } catch (e) {
-      return scaleMemory[scaleKey(n)] || 1;
+      const v = scaleMemory[scaleKey(n)];
+      if (!v || !baseSize) return 1;
+      return +(v / baseSize).toFixed(4);
     }
   }
 
   function saveScale(n, val) {
+    const savedAbs = baseSize * val;
     try {
-      localStorage.setItem(scaleKey(n), val);
+      localStorage.setItem(scaleKey(n), savedAbs);
     } catch (e) {
-      scaleMemory[scaleKey(n)] = val;
+      scaleMemory[scaleKey(n)] = savedAbs;
     }
   }
 
@@ -1377,7 +1503,6 @@
   function startGame(n) {
     currentSize = n;
     inGame = true;
-    scale = loadScale(n);
     menuScreen.style.display = 'none';
     gameScreen.style.display = 'block';
     // baseSize считается ОДИН РАЗ здесь, при входе в таблицу — а не в buildGrid(),
@@ -1388,6 +1513,11 @@
     // F11, которая доигрывает уже после того, как таблица открылась), сетка
     // визуально "прыгала" в размере сама по себе, без участия пользователя.
     baseSize = applyLayout(n);
+    // loadScale вызывается ПОСЛЕ вычисления baseSize — она пересчитывает
+    // сохранённый АБСОЛЮТНЫЙ размер (px) в scale относительно текущего
+    // baseSize, чтобы итоговый размер плиток (baseSize*scale) совпадал с тем,
+    // что было сохранено, независимо от текущего размера окна/fullscreen.
+    scale = loadScale(n);
     if (currentLevel.memoryLevel) {
       startMemoryRound(n, true);
     } else {
@@ -1593,8 +1723,11 @@
     return `${pad2(min)}:${pad2(sec)}:${pad3(msPart)}`;
   }
 
+  let lastAttemptTime = null; // время последнего завершённого прохождения (для плашки Alt+R/Alt+К), ни с чем не сравнивается
+
   function finishGame() {
     const elapsed = performance.now() - startTime;
+    lastAttemptTime = elapsed; // запоминаем последнюю попытку — см. плашку #lastrun-display
     saveBestIfBetter(currentSize, elapsed); // рекорд считается всегда, даже при instantRestart
 
     if (currentLevel.memoryInstantRestart) {
@@ -1623,6 +1756,19 @@
     updateEyeVisibility();
   }
 
+  // ---------- ВРЕМЯ ПОСЛЕДНЕЙ ПОПЫТКИ: плашка, видна пока зажата Alt+R/Alt+К (только во время игры) ----------
+  const lastRunDisplay = document.getElementById('lastrun-display');
+  let lastRunOn = false;
+
+  function updateLastRunVisibility() {
+    if (lastRunOn) {
+      lastRunDisplay.textContent = lastAttemptTime !== null ? formatTime(lastAttemptTime) : '--:--:---';
+      lastRunDisplay.classList.add('show');
+    } else {
+      lastRunDisplay.classList.remove('show');
+    }
+  }
+
   // ---------- РЕКОРДЫ: строка под каждой плиткой, видна пока зажата R/К ----------
   let recordsOn = false;
 
@@ -1646,6 +1792,14 @@
   function updateInfoVisibility() {
     infoOverlay.classList.toggle('show', infoOn);
   }
+
+  // Клик за пределами #info-box (то есть по самому #info-overlay) — закрыть окно.
+  infoOverlay.addEventListener('click', (e) => {
+    if (e.target === infoOverlay) {
+      infoOn = false;
+      updateInfoVisibility();
+    }
+  });
 
   // ---------- ТАЙМЕР ОБРАТНОГО ОТСЧЁТА (клавиша N, физически она же Т в русской раскладке) ----------
   // Нажал N/Т — появляется окно ввода. Пока таймер тикает — на экране ничего не видно
@@ -2014,6 +2168,14 @@
       updateInfoVisibility();
     }
 
+    if (e.code === 'KeyR' && e.altKey && inGame) { // Alt+R (англ.) / Alt+К (рус.) — показать время последней завершённой попытки, пока зажато (только во время игры)
+      e.preventDefault();
+      if (!lastRunOn) {
+        lastRunOn = true;
+        updateLastRunVisibility();
+      }
+    }
+
     if (e.code === 'KeyN') { // N (англ.) / Т (рус.) — окно ввода таймера обратного отсчёта
       e.preventDefault();
       openCountdownInput();
@@ -2088,6 +2250,10 @@
     if (e.code === 'KeyR') { // отпустили R/К — прячем рекорды под плитками (работает только в меню, см. keydown)
       recordsOn = false;
       updateRecordsVisibility();
+    }
+    if (e.code === 'KeyR' && lastRunOn) { // отпустили Alt+R/Alt+К во время игры — прячем плашку последней попытки
+      lastRunOn = false;
+      updateLastRunVisibility();
     }
     // KeyB больше не обрабатывается тут: окно информации теперь переключается
     // по Alt+B/Alt+И на keydown (нажал — показал, нажал ещё раз — спрятал),
