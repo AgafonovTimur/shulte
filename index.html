@@ -621,6 +621,11 @@
     position: relative;
     width: 100%;
     height: 100%;
+    /* Не даём браузеру перехватывать движение пера как собственную прокрутку/жест.
+       Это сохраняет поток pointermove, нужный для жестов пера внутри игры. */
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
   }
 
   /* Сетка позиционируется абсолютно и центрируется относительно центра экрана,
@@ -1075,6 +1080,7 @@
 		-- Правая кнопка мыши (удерживать) — показать подсказку с искомым числом.
 		-- Колесо мыши вверх — выйти в меню
 		-- Space / Колесо мыши вниз — начать заново текущую таблицу
+		-- Перо: удерживать и провести вверх — выйти в меню; вниз — обновить таблицу (порог — 1/4 высоты окна, диагональ тоже работает).
 		-- N / Т — открыть окно ввода таймера обратного отсчёта (Enter — запустить после ввода).
 		-- Alt+R / Alt+К - Только во время игры на бесконечных уровнях - показывает время ПОСЛЕДНЕГО завершённого прохождения текущей таблицы.
 
@@ -1893,34 +1899,58 @@
   const scaleMemory = {};
   const bestMemory = {};
 
-  function scaleKey(n) { return 'schulte-scale-' + currentLevelId + '-' + n; }
+  // Масштаб общий для пары «обычный / бесконечный» одного режима:
+  // level1 и level2 используют одну настройку, level3 и level4 — другую
+  // и так далее вплоть до level15/level16. Рекорды при этом остаются
+  // раздельными для каждого конкретного уровня (см. bestKey ниже).
+  function scalePairId() {
+    const match = /^level(\d+)$/.exec(currentLevelId);
+    if (!match) return currentLevelId;
+    return 'pair' + Math.ceil(Number(match[1]) / 2);
+  }
+
+  function scaleKey(n) { return 'schulte-scale-' + scalePairId() + '-' + n; }
   function bestKey(n) { return 'schulte-best-' + currentLevelId + '-' + n; }
 
-  // Хранится АБСОЛЮТНЫЙ размер таблицы в px (а не относительный множитель
-  // scale), чтобы визуальный размер плиток не зависел от того, каким было
-  // window.innerWidth/innerHeight в момент нажатия +/- (например, до/после
-  // входа в полноэкранный режим F11). При входе на уровень абсолютный
-  // размер пересчитывается обратно в scale относительно ТЕКУЩЕГО baseSize.
+  // Храним относительный масштаб (множитель от базового размера), а не px.
+  // Например, 1.0 = 100%, 1.2 = 120%. Базовый размер таблицы каждый раз
+  // рассчитывается под текущее окно, поэтому такой формат сохраняет одинаковую
+  // долю доступной области и не зависит от разрешения, F11 и момента входа.
+  // Обычный и бесконечный варианты одной пары читают и записывают один ключ.
+  // Используется новый формат ключей; прежние записи намеренно не читаются.
   function loadScale(n) {
-    try {
-      const v = localStorage.getItem(scaleKey(n));
-      if (!v) return 1;
-      const savedAbs = parseFloat(v);
-      if (!savedAbs || !baseSize) return 1;
-      return +(savedAbs / baseSize).toFixed(4);
-    } catch (e) {
-      const v = scaleMemory[scaleKey(n)];
-      if (!v || !baseSize) return 1;
-      return +(v / baseSize).toFixed(4);
+    const key = scaleKey(n);
+    let stored = null;
+
+    // Если localStorage недоступен, используем значение из памяти страницы.
+    if (Object.prototype.hasOwnProperty.call(scaleMemory, key)) {
+      stored = scaleMemory[key];
+    } else {
+      try {
+        stored = localStorage.getItem(key);
+      } catch (e) {
+        stored = null;
+      }
     }
+
+    if (stored === null || stored === '') return 1;
+    const savedScale = Number(stored);
+    if (!Number.isFinite(savedScale) || savedScale <= 0) return 1;
+    return Math.max(0.2, +savedScale.toFixed(2));
   }
 
   function saveScale(n, val) {
-    const savedAbs = baseSize * val;
+    const key = scaleKey(n);
+    const savedScale = Math.max(0.2, +Number(val).toFixed(2));
+
+    // Сначала обновляем резервное значение, чтобы настройка не терялась,
+    // даже если запись в localStorage завершится ошибкой.
+    scaleMemory[key] = savedScale;
     try {
-      localStorage.setItem(scaleKey(n), savedAbs);
+      localStorage.setItem(key, String(savedScale));
+      delete scaleMemory[key];
     } catch (e) {
-      scaleMemory[scaleKey(n)] = savedAbs;
+      // Оставляем значение в scaleMemory до конца текущей страницы.
     }
   }
 
@@ -2043,10 +2073,8 @@
     // F11, которая доигрывает уже после того, как таблица открылась), сетка
     // визуально "прыгала" в размере сама по себе, без участия пользователя.
     baseSize = applyLayout(n);
-    // loadScale вызывается ПОСЛЕ вычисления baseSize — она пересчитывает
-    // сохранённый АБСОЛЮТНЫЙ размер (px) в scale относительно текущего
-    // baseSize, чтобы итоговый размер плиток (baseSize*scale) совпадал с тем,
-    // что было сохранено, независимо от текущего размера окна/fullscreen.
+    // Масштаб хранится как относительный множитель (например, 1.2 = 120%),
+    // поэтому его можно применить к базовому размеру текущего окна напрямую.
     scale = loadScale(n);
     if (currentLevel.memoryLevel) {
       startMemoryRound(n, true);
@@ -2153,16 +2181,52 @@
   });
 
   // ---------- обработка нажатий мышью и пером через Pointer Events ----------
-  // И мышь, и перо засчитывают нажатие сразу при pointerdown, не дожидаясь
-  // отпускания кнопки/пера. Touch и клавиатурная активация кнопок сохраняют
-  // прежний click-обработчик.
-  // Последующий click от того же физического нажатия подавляется, чтобы
-  // одно действие не засчитывалось дважды.
+  // Мышь засчитывает нажатие сразу при pointerdown.
+  // Перо: короткое касание по клетке засчитывается как нажатие, а протяжённый жест
+  // вверх/вниз выполняет действие колеса мыши. Жесты доступны и на экране результата
+  // (после финиша), где позволяют начать следующую таблицу или выйти в меню.
+  // Порог считается по полной длине перемещения, поэтому диагональные движения тоже подходят.
+  // Последующий click от того же физического нажатия подавляется.
   let lastHandledGamePointer = null;
+  let activePenGesture = null;
+  const PEN_GESTURE_MIN_HEIGHT_FRACTION = 0.25;
+  const PEN_GESTURE_MIN_VERTICAL_RATIO = 0.12; // направление вверх/вниз должно быть заметно, но не строго вертикально
+  const PEN_GESTURE_TAP_SLOP = 10; // небольшое дрожание руки при обычном касании, px
+
+  function activateGamePointer(target) {
+    if (!inGame || finished || !gameScreen.contains(target)) return;
+
+    if (currentLevel.clickAnywhere) {
+      const targetCell = grid.querySelector(`.cell[data-ord="${currentTarget}"]`);
+      if (targetCell) handleCellClick(targetCell, currentTarget);
+    } else {
+      const cell = target.closest?.('.cell[data-ord]');
+      if (cell && grid.contains(cell)) {
+        handleCellClick(cell, Number(cell.dataset.ord));
+      }
+    }
+  }
+
+  function handleGameWheelNavigation(deltaY) {
+    if (!inGame) return;
+
+    if (deltaY > 0) {
+      if (currentLevel.memoryLevel) {
+        startMemoryRound(currentSize, true);
+      } else {
+        buildGrid(currentSize);
+      }
+    } else if (deltaY < 0) {
+      showMenu();
+    }
+  }
 
   document.addEventListener('pointerdown', (e) => {
     if ((e.pointerType !== 'mouse' && e.pointerType !== 'pen') || e.button !== 0 || !e.isPrimary) return;
-    if (!inGame || finished || !gameScreen.contains(e.target)) return;
+    if (!inGame || !gameScreen.contains(e.target)) return;
+    // После завершения раунда разрешаем только жесты пера на экране результата.
+    // Мышиные нажатия и обычные действия по скрытым клеткам остаются отключены.
+    if (finished && e.pointerType !== 'pen') return;
 
     lastHandledGamePointer = {
       pointerId: e.pointerId,
@@ -2171,20 +2235,103 @@
       time: performance.now()
     };
 
-    if (currentLevel.clickAnywhere) {
-      const targetCell = grid.querySelector(`.cell[data-ord="${currentTarget}"]`);
-      if (targetCell) handleCellClick(targetCell, currentTarget);
-    } else {
-      const cell = e.target.closest?.('.cell[data-ord]');
-      if (cell && grid.contains(cell)) {
-        handleCellClick(cell, Number(cell.dataset.ord));
+    if (e.pointerType === 'pen') {
+      // Нажатие непосредственно на клетку с цифрой сразу засчитывается,
+      // как и раньше. Жесты вверх/вниз разрешены только если перо изначально
+      // коснулось свободного места (включая пустую центральную клетку без цифры).
+      e.preventDefault();
+      const numberedCell = e.target.closest?.('.cell[data-ord]');
+      const startedOnNumberedCell = numberedCell && grid.contains(numberedCell);
+
+      if (startedOnNumberedCell) {
+        activePenGesture = null;
+        activateGamePointer(e.target);
+        return;
+      }
+
+      // На пустом месте ждём: короткое касание остаётся обычным кликом
+      // (это важно для уровней clickAnywhere), длинное движение становится жестом.
+      activePenGesture = {
+        pointerId: e.pointerId,
+        startX: e.clientX,
+        startY: e.clientY,
+        target: e.target,
+        triggered: false
+      };
+
+      // Захватываем указатель всем игровым экраном, чтобы pointermove
+      // продолжал приходить и над сеткой, и за её пределами.
+      try {
+        gameScreen.setPointerCapture(e.pointerId);
+      } catch (_) {}
+      return;
+    }
+
+    // Мышь — сразу при нажатии, без ожидания отпускания.
+    activateGamePointer(e.target);
+  }, true);
+
+  document.addEventListener('pointermove', (e) => {
+    const gesture = activePenGesture;
+    if (!gesture || e.pointerId !== gesture.pointerId || gesture.triggered) return;
+
+    const deltaX = e.clientX - gesture.startX;
+    const deltaY = e.clientY - gesture.startY;
+    const distance = Math.hypot(deltaX, deltaY);
+    const minimumDistance = window.innerHeight * PEN_GESTURE_MIN_HEIGHT_FRACTION;
+
+    // Порог — 1/4 высоты окна по полной длине траектории. Диагональ разрешена;
+    // при этом вертикальная составляющая должна быть хотя бы 12% пути,
+    // чтобы случайное почти горизонтальное движение не выбирало направление.
+    if (distance < minimumDistance) return;
+    if (Math.abs(deltaY) < distance * PEN_GESTURE_MIN_VERTICAL_RATIO) return;
+
+    gesture.triggered = true;
+    if (lastHandledGamePointer && lastHandledGamePointer.pointerId === e.pointerId) {
+      lastHandledGamePointer.time = performance.now();
+    }
+    handleGameWheelNavigation(deltaY);
+  }, true);
+
+  document.addEventListener('pointerup', (e) => {
+    if (activePenGesture && e.pointerId === activePenGesture.pointerId) {
+      const gesture = activePenGesture;
+      activePenGesture = null;
+
+      if (lastHandledGamePointer && lastHandledGamePointer.pointerId === e.pointerId) {
+        lastHandledGamePointer.time = performance.now();
+      }
+
+      // На свободном месте короткое касание сохраняет прежнее поведение
+      // clickAnywhere-уровней. На обычных уровнях пустое место не нажимает клетки.
+      // Если перо заметно двигалось, но не достигло порога жеста, ничего не делаем.
+      const movedDistance = Math.hypot(e.clientX - gesture.startX, e.clientY - gesture.startY);
+      if (!gesture.triggered && movedDistance <= PEN_GESTURE_TAP_SLOP) {
+        activateGamePointer(gesture.target);
+      }
+      return;
+    }
+
+    // Обновляем время и для мыши: в старых браузерах click может не содержать
+    // pointerId/pointerType, и тогда подавление дубликата опирается на время.
+    if (lastHandledGamePointer && lastHandledGamePointer.pointerId === e.pointerId) {
+      lastHandledGamePointer.time = performance.now();
+    }
+  }, true);
+
+  document.addEventListener('pointercancel', (e) => {
+    if (activePenGesture && e.pointerId === activePenGesture.pointerId) {
+      activePenGesture = null;
+      if (lastHandledGamePointer && lastHandledGamePointer.pointerId === e.pointerId) {
+        lastHandledGamePointer = null;
       }
     }
-  });
+  }, true);
 
-  // Capture-фаза подавляет только click, порождённый тем же нажатием мыши/пера.
-  // В современных браузерах click содержит pointerId/pointerType; запасная
-  // проверка по target и времени нужна для старых реализаций MouseEvent.
+  // Capture-фаза подавляет click, который браузер дополнительно генерирует
+  // после pointerdown. Для пера проверяем также фактическую цель события:
+  // некоторые драйверы/браузеры передают синтетический click с pointerType='mouse'
+  // или с другим pointerId, хотя это продолжение того же касания пером.
   document.addEventListener('click', (e) => {
     if (!lastHandledGamePointer) return;
 
@@ -2196,7 +2343,15 @@
     const legacyMouseClick = !hasPointerInfo && e.detail > 0 && elapsed <= 1000 &&
       e.target === lastHandledGamePointer.target;
 
-    if (samePointerClick || legacyMouseClick) {
+    // У пера одного совпадения pointerId/target недостаточно: после
+    // setPointerCapture браузер может перенаправить завершающий click на
+    // #game-screen, а Windows Ink может пометить его как mouse-событие.
+    // Поскольку lastHandledGamePointer создаётся только для нажатия внутри
+    // игры, подавляем следующий обычный (detail > 0) click в игровом экране.
+    const samePenTargetClick = lastHandledGamePointer.pointerType === 'pen' &&
+      e.detail > 0 && elapsed <= 1000 && gameScreen.contains(e.target);
+
+    if (samePointerClick || legacyMouseClick || samePenTargetClick) {
       e.preventDefault();
       e.stopImmediatePropagation();
       lastHandledGamePointer = null;
@@ -2872,17 +3027,7 @@
 
   // ---------- колесо мыши: навигация ----------
   document.addEventListener('wheel', (e) => {
-    if (inGame) {
-      if (e.deltaY > 0) {
-        if (currentLevel.memoryLevel) {
-          startMemoryRound(currentSize, true);
-        } else {
-          buildGrid(currentSize);
-        }
-      } else if (e.deltaY < 0) {
-        showMenu();
-      }
-    }
+    handleGameWheelNavigation(e.deltaY);
   }, { passive: true });
 
   // ---------- мобильная версия: определение устройства + свайпы ----------
